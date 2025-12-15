@@ -137,12 +137,49 @@ artifacts:
     junit: mutation-reports/junit.xml
 ```
 
+## AI Report
+
+Generate a markdown report optimized for AI assistants:
+
+```bash
+dart_mutant --ai-report
+```
+
+### Output
+
+Creates `mutation-report-ai.md` - paste it directly into Claude, ChatGPT, or Copilot to have AI write your missing tests.
+
+**Contents:**
+
+- **Summary**: Mutation score, killed/survived counts
+- **Surviving mutants by file**: Worst files first
+- **Mutation details**: Exact line, original → mutated code
+- **Test hints**: Specific guidance for each mutation type
+- **Quick reference**: `file:line` format for easy navigation
+
+### Example Workflow
+
+```bash
+# Generate the AI report
+dart_mutant --ai-report
+
+# Paste into your AI assistant:
+```
+
+```
+Here's my mutation report. Write tests to kill these surviving mutants:
+
+[paste mutation-report-ai.md contents]
+```
+
+The AI gets structured data about exactly what mutations survived and specific hints about what tests would catch them.
+
 ## Multiple Formats
 
 Generate all formats at once:
 
 ```bash
-dart_mutant --html --json --junit
+dart_mutant --html --json --junit --ai-report
 ```
 
 Output:
@@ -151,6 +188,7 @@ Output:
 ./mutation-reports/
 ├── mutation-report.html
 ├── mutation-report.json
+├── mutation-report-ai.md
 └── junit.xml
 ```
 
