@@ -1,9 +1,12 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,21 +19,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-apple-darwin
-            os: macos-latest
+          # - target: x86_64-apple-darwin
+          #   os: macos-latest
           - target: aarch64-apple-darwin
             os: macos-latest
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+          # - target: x86_64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          # - target: aarch64-unknown-linux-gnu
+          #   os: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
@@ -48,14 +51,14 @@ jobs:
       - name: Package (Unix)
         run: |
           cd target/${{ matrix.target }}/release
-          tar -czvf ../../../dart_mutant-${{ github.ref_name }}-${{ matrix.target }}.tar.gz dart_mutant
+          tar -czvf ../../../dart_mutant-${{ inputs.version }}-${{ matrix.target }}.tar.gz dart_mutant
           cd ../../..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: dart_mutant-${{ matrix.target }}
-          path: dart_mutant-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+          path: dart_mutant-${{ inputs.version }}-${{ matrix.target }}.tar.gz
 
   release:
     name: Create Release
@@ -70,6 +73,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ inputs.version }}
           files: artifacts/**/*.tar.gz
           generate_release_notes: true
         env:

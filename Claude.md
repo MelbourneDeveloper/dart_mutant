@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 100% Test Coverage is only the start of code quality
 - No unit tests. Only COARSE tests that actually TEST TESTS.
 - Beautiful output report
+- Do not use Git unless asked to
 
 ## Rust Quality Standards
 - All lints at highest strictness (see Cargo.toml `[lints]` section)
