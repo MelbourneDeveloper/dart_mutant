@@ -467,6 +467,7 @@ fn find_string_mutation(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

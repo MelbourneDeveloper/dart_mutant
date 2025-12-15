@@ -1,3 +1,15 @@
+// Allow test-specific patterns that are fine in test code
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::ptr_arg,
+    clippy::needless_collect,
+    clippy::useless_vec,
+    clippy::single_char_pattern,
+    clippy::bool_comparison
+)]
+
 //! Integration tests for the mutation test runner
 //!
 //! These tests verify that the runner correctly:

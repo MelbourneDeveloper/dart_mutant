@@ -1,3 +1,16 @@
+// Allow test-specific patterns that are fine in test code
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::assertions_on_constants,
+    clippy::unnecessary_literal_unwrap,
+    clippy::cloned_instead_of_copied,
+    clippy::iter_out_of_bounds,
+    clippy::needless_collect,
+    clippy::useless_vec
+)]
+
 //! Integration tests for mutation generation
 //!
 //! These tests verify that the mutation system correctly:
@@ -235,14 +248,14 @@ bool isPositive(int n) {
 "#;
 
         // Mutate > to >=
-        let mutated = source.replace(">", ">=");
+        let mutated = source.replace('>', ">=");
         assert!(
             mutated.contains("n >= 0"),
             "Mutated code should have 'n >= 0'"
         );
 
         // Mutate > to <
-        let mutated2 = source.replace(">", "<");
+        let mutated2 = source.replace('>', "<");
         assert!(
             mutated2.contains("n < 0"),
             "Mutated code should have 'n < 0'"

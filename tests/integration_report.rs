@@ -1,3 +1,11 @@
+// Allow test-specific patterns that are fine in test code
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::format_push_string
+)]
+
 //! Integration tests for report generation
 //!
 //! These tests verify that the report module correctly:
@@ -191,7 +199,7 @@ mod mutation_score_calculation {
         for results in test_cases {
             let score = calculate_mutation_score(&results);
             assert!(
-                score >= 0.0 && score <= 100.0,
+                (0.0..=100.0).contains(&score),
                 "Score should be between 0 and 100, got {}",
                 score
             );

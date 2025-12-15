@@ -25,7 +25,11 @@ struct FileRestoreGuard {
 impl Drop for FileRestoreGuard {
     fn drop(&mut self) {
         if let Err(e) = std::fs::write(&self.path, &self.original_content) {
-            eprintln!("Warning: Failed to restore file {:?}: {}", self.path, e);
+            eprintln!(
+                "Warning: Failed to restore file {}: {}",
+                self.path.display(),
+                e
+            );
         }
     }
 }
@@ -77,8 +81,8 @@ pub async fn run_mutation_tests(
 
     let handles: Vec<_> = mutations
         .iter()
-        .cloned()
         .map(|mutation| {
+            let mutation = mutation.clone();
             let semaphore = semaphore.clone();
             let project_path = project_path.clone();
             let progress = progress.clone();
@@ -231,6 +235,7 @@ async fn run_dart_test(project_path: &Path) -> Result<(i32, String, String)> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::mutation::{MutationOperator, SourceLocation};

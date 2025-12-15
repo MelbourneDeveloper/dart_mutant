@@ -10,6 +10,7 @@ use crate::runner::MutantTestResult;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::Path;
 
 /// Helper trait for MutantStatus display
@@ -505,21 +506,24 @@ pub fn generate_ai_report(
     // Header with summary
     report.push_str("# Mutation Testing Report (AI-Optimized)\n\n");
     report.push_str("## Summary\n\n");
-    report.push_str(&format!(
-        "- **Mutation Score**: {:.1}%\n",
+    let _ = writeln!(
+        report,
+        "- **Mutation Score**: {:.1}%",
         result.mutation_score
-    ));
-    report.push_str(&format!("- **Total Mutants**: {}\n", result.total));
-    report.push_str(&format!(
-        "- **Killed**: {} (tests caught the bug)\n",
+    );
+    let _ = writeln!(report, "- **Total Mutants**: {}", result.total);
+    let _ = writeln!(
+        report,
+        "- **Killed**: {} (tests caught the bug)",
         result.killed
-    ));
-    report.push_str(&format!(
-        "- **Survived**: {} (tests missed the bug)\n",
+    );
+    let _ = writeln!(
+        report,
+        "- **Survived**: {} (tests missed the bug)",
         result.survived
-    ));
-    report.push_str(&format!("- **Timeout**: {}\n", result.timeout));
-    report.push_str(&format!("- **Errors**: {}\n\n", result.errors));
+    );
+    let _ = writeln!(report, "- **Timeout**: {}", result.timeout);
+    let _ = writeln!(report, "- **Errors**: {}\n", result.errors);
 
     // Group survived mutants by file
     let mut survived_by_file: HashMap<String, Vec<&MutantTestResult>> = HashMap::new();
@@ -542,24 +546,22 @@ pub fn generate_ai_report(
         files.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
 
         for (file, mutants) in files {
-            report.push_str(&format!("### {}\n\n", file));
-            report.push_str(&format!("{} surviving mutant(s)\n\n", mutants.len()));
+            let _ = writeln!(report, "### {}\n", file);
+            let _ = writeln!(report, "{} surviving mutant(s)\n", mutants.len());
 
             for mutant in mutants {
                 let m = &mutant.mutation;
-                report.push_str(&format!(
-                    "#### Line {}:{}\n\n",
+                let _ = writeln!(
+                    report,
+                    "#### Line {}:{}\n",
                     m.location.start_line, m.location.start_col
-                ));
-                report.push_str(&format!(
-                    "**Mutation**: `{}` → `{}`\n\n",
-                    m.original, m.mutated
-                ));
-                report.push_str(&format!("**Operator**: {}\n\n", m.operator.name()));
+                );
+                let _ = writeln!(report, "**Mutation**: `{}` → `{}`\n", m.original, m.mutated);
+                let _ = writeln!(report, "**Operator**: {}\n", m.operator.name());
 
                 // Generate test hint based on operator
                 let test_hint = generate_test_hint(&m.operator, &m.original, &m.mutated);
-                report.push_str(&format!("**Suggested Test**: {}\n\n", test_hint));
+                let _ = writeln!(report, "**Suggested Test**: {}\n", test_hint);
 
                 report.push_str("---\n\n");
             }
@@ -572,13 +574,14 @@ pub fn generate_ai_report(
         report.push_str("```\n");
         for (file, mutants) in &survived_by_file {
             for mutant in mutants {
-                report.push_str(&format!(
-                    "{}:{}  # {} → {}\n",
+                let _ = writeln!(
+                    report,
+                    "{}:{}  # {} → {}",
                     file,
                     mutant.mutation.location.start_line,
                     mutant.mutation.original,
                     mutant.mutation.mutated
-                ));
+                );
             }
         }
         report.push_str("```\n");
@@ -596,41 +599,52 @@ fn generate_test_hint(
     original: &str,
     mutated: &str,
 ) -> String {
-    use crate::mutation::MutationOperator::*;
+    use crate::mutation::MutationOperator;
 
     match operator {
         // Arithmetic
-        Arithmetic | ArithmeticAddToSub | ArithmeticSubToAdd => {
+        MutationOperator::Arithmetic
+        | MutationOperator::ArithmeticAddToSub
+        | MutationOperator::ArithmeticSubToAdd => {
             format!(
                 "Add a test that verifies the arithmetic result. If `{}` changed to `{}`, \
                 test with values where addition vs subtraction gives different results (e.g., non-zero operands).",
                 original, mutated
             )
         }
-        ArithmeticMulToDiv | ArithmeticDivToMul => {
+        MutationOperator::ArithmeticMulToDiv | MutationOperator::ArithmeticDivToMul => {
             format!(
                 "Test with values where `{}` vs `{}` produce different results. \
                 Avoid values like 1 or 0 that may give same result for both operations.",
                 original, mutated
             )
         }
-        ArithmeticModToMul => {
-            "Test modulo operation with values that produce a remainder (not evenly divisible).".to_string()
+        MutationOperator::ArithmeticModToMul => {
+            "Test modulo operation with values that produce a remainder (not evenly divisible)."
+                .to_string()
         }
 
         // Comparison
-        Comparison | ComparisonLtToLte | ComparisonLteToLt | ComparisonGtToGte | ComparisonGteToGt => {
+        MutationOperator::Comparison
+        | MutationOperator::ComparisonLtToLte
+        | MutationOperator::ComparisonLteToLt
+        | MutationOperator::ComparisonGtToGte
+        | MutationOperator::ComparisonGteToGt => {
             format!(
                 "Add a boundary test. Test with exact boundary value where `{}` vs `{}` differ. \
                 If testing `<` vs `<=`, use the exact boundary value.",
                 original, mutated
             )
         }
-        ComparisonLtToGt | ComparisonLteToGte | ComparisonGtToLt | ComparisonGteToLte => {
+        MutationOperator::ComparisonLtToGt
+        | MutationOperator::ComparisonLteToGte
+        | MutationOperator::ComparisonGtToLt
+        | MutationOperator::ComparisonGteToLte => {
             "Add tests for values on both sides of the comparison. \
-            Test with value less than, equal to, and greater than the boundary.".to_string()
+            Test with value less than, equal to, and greater than the boundary."
+                .to_string()
         }
-        ComparisonEqToNeq | ComparisonNeqToEq => {
+        MutationOperator::ComparisonEqToNeq | MutationOperator::ComparisonNeqToEq => {
             format!(
                 "Test both equality and inequality. If `{}` → `{}`, ensure tests verify \
                 both the equal case AND the not-equal case.",
@@ -639,17 +653,23 @@ fn generate_test_hint(
         }
 
         // Logical
-        Logical | LogicalAndToOr | LogicalOrToAnd => {
+        MutationOperator::Logical
+        | MutationOperator::LogicalAndToOr
+        | MutationOperator::LogicalOrToAnd => {
             "Test all combinations of boolean conditions. For `&&` vs `||`, test cases where \
-            one condition is true and the other is false.".to_string()
+            one condition is true and the other is false."
+                .to_string()
         }
-        LogicalNotRemoval => {
+        MutationOperator::LogicalNotRemoval => {
             "Add tests for both true and false outcomes of the negated expression. \
-            Ensure the test fails when negation is removed.".to_string()
+            Ensure the test fails when negation is removed."
+                .to_string()
         }
 
         // Boolean
-        Boolean | BooleanTrueToFalse | BooleanFalseToTrue => {
+        MutationOperator::Boolean
+        | MutationOperator::BooleanTrueToFalse
+        | MutationOperator::BooleanFalseToTrue => {
             format!(
                 "The boolean `{}` was changed to `{}`. Add a test that \
                 explicitly checks this boolean's effect on behavior.",
@@ -658,68 +678,91 @@ fn generate_test_hint(
         }
 
         // Unary
-        Unary | UnaryIncrementToDecrement | UnaryDecrementToIncrement => {
+        MutationOperator::Unary
+        | MutationOperator::UnaryIncrementToDecrement
+        | MutationOperator::UnaryDecrementToIncrement => {
             "Test that the value changes in the expected direction. \
-            Verify increment increases and decrement decreases.".to_string()
+            Verify increment increases and decrement decreases."
+                .to_string()
         }
-        UnaryMinusRemoval | UnaryPlusMinus => {
-            "Test with positive and negative values to ensure sign is handled correctly.".to_string()
+        MutationOperator::UnaryMinusRemoval | MutationOperator::UnaryPlusMinus => {
+            "Test with positive and negative values to ensure sign is handled correctly."
+                .to_string()
         }
-        UnaryPreToPost | UnaryPostToPre => {
+        MutationOperator::UnaryPreToPost | MutationOperator::UnaryPostToPre => {
             "Test that uses the return value of the increment/decrement expression. \
-            Pre vs post increment differ in what value is returned.".to_string()
+            Pre vs post increment differ in what value is returned."
+                .to_string()
         }
 
         // Null Safety
-        NullSafety | NullCoalescingRemoval => {
+        MutationOperator::NullSafety | MutationOperator::NullCoalescingRemoval => {
             "Test with null input to verify the fallback value is used. \
-            The `??` operator's right side should be tested.".to_string()
+            The `??` operator's right side should be tested."
+                .to_string()
         }
-        NullAwareAccessRemoval => {
+        MutationOperator::NullAwareAccessRemoval => {
             "Test with null object to ensure null-safe access (`?.`) prevents crash. \
-            Verify behavior when the object is null vs non-null.".to_string()
+            Verify behavior when the object is null vs non-null."
+                .to_string()
         }
-        NullAssertionRemoval => {
+        MutationOperator::NullAssertionRemoval => {
             "Test with non-null values to ensure assertion (`!`) behavior is correct.".to_string()
         }
-        NullCheckToTrue | NullCheckToFalse => {
-            "Test with both null and non-null values to verify null check works correctly.".to_string()
+        MutationOperator::NullCheckToTrue | MutationOperator::NullCheckToFalse => {
+            "Test with both null and non-null values to verify null check works correctly."
+                .to_string()
         }
 
         // String
-        String | StringEmptyToNonEmpty | StringNonEmptyToEmpty => {
-            "Test with both empty and non-empty strings. Verify behavior differs appropriately.".to_string()
+        MutationOperator::String
+        | MutationOperator::StringEmptyToNonEmpty
+        | MutationOperator::StringNonEmptyToEmpty => {
+            "Test with both empty and non-empty strings. Verify behavior differs appropriately."
+                .to_string()
         }
 
         // Control Flow
-        Conditional | ControlFlowIfConditionTrue | ControlFlowIfConditionFalse => {
+        MutationOperator::Conditional
+        | MutationOperator::ControlFlowIfConditionTrue
+        | MutationOperator::ControlFlowIfConditionFalse => {
             "Add tests that exercise both branches of the if statement. \
-            Ensure tests verify behavior when condition is true AND when false.".to_string()
+            Ensure tests verify behavior when condition is true AND when false."
+                .to_string()
         }
-        ControlFlowRemoveElse => {
-            "Test the else branch explicitly. Verify behavior when the if condition is false.".to_string()
+        MutationOperator::ControlFlowRemoveElse => {
+            "Test the else branch explicitly. Verify behavior when the if condition is false."
+                .to_string()
         }
-        ControlFlowBreakRemoval | ControlFlowContinueRemoval => {
-            "Test loop termination/continuation. Verify the loop stops or continues at the right time.".to_string()
+        MutationOperator::ControlFlowBreakRemoval
+        | MutationOperator::ControlFlowContinueRemoval => {
+            "Test loop termination/continuation. Verify the loop stops or continues at the right time."
+                .to_string()
         }
-        ControlFlowReturnRemoval => {
-            "Test early return conditions. Verify function returns expected value at the return point.".to_string()
+        MutationOperator::ControlFlowReturnRemoval => {
+            "Test early return conditions. Verify function returns expected value at the return point."
+                .to_string()
         }
 
         // Collection
-        Collection | CollectionEmptyCheck | CollectionNotEmptyCheck => {
+        MutationOperator::Collection
+        | MutationOperator::CollectionEmptyCheck
+        | MutationOperator::CollectionNotEmptyCheck => {
             "Test with empty collection AND non-empty collection. \
-            Verify isEmpty/isNotEmpty checks affect behavior.".to_string()
+            Verify isEmpty/isNotEmpty checks affect behavior."
+                .to_string()
         }
-        CollectionFirstToLast | CollectionLastToFirst => {
+        MutationOperator::CollectionFirstToLast | MutationOperator::CollectionLastToFirst => {
             "Test with collection having different first and last elements. \
-            Verify correct element is accessed.".to_string()
+            Verify correct element is accessed."
+                .to_string()
         }
-        CollectionAddRemoval => {
-            "Verify the collection modification occurs. Test that add() actually adds the element.".to_string()
+        MutationOperator::CollectionAddRemoval => {
+            "Verify the collection modification occurs. Test that add() actually adds the element."
+                .to_string()
         }
 
-        // Other
+        // Other - catch-all for any other operators
         _ => format!(
             "Add a test that verifies the behavior changes when `{}` is replaced with `{}`.",
             original, mutated

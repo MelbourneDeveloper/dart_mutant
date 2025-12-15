@@ -1,3 +1,6 @@
+// Allow panics and expects in test code - tests need to fail loudly
+#![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
 //! End-to-end integration tests for dart_mutant
 //!
 //! These tests verify the complete mutation testing pipeline:
@@ -248,15 +251,14 @@ mod file_discovery_e2e {
         let lib = fixtures_path().join("lib");
         assert!(lib.exists(), "Test fixtures lib directory should exist");
 
-        let dart_files: Vec<_> = walkdir::WalkDir::new(&lib)
+        let dart_file_count = walkdir::WalkDir::new(&lib)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().map_or(false, |ext| ext == "dart"))
-            .collect();
+            .count();
 
         assert_eq!(
-            dart_files.len(),
-            4,
+            dart_file_count, 4,
             "Should find exactly 4 Dart files in fixtures/lib"
         );
     }
@@ -615,23 +617,17 @@ mod threshold_behavior {
 
     #[test]
     fn threshold_80_requires_high_score() {
-        let threshold = 80.0;
+        let threshold = 80.0_f64;
 
         assert!(80.0 >= threshold, "80% should pass 80% threshold");
         assert!(100.0 >= threshold, "100% should pass 80% threshold");
-        assert!(!(79.9 >= threshold), "79.9% should fail 80% threshold");
-        assert!(!(50.0 >= threshold), "50% should fail 80% threshold");
+        assert!(79.9 < threshold, "79.9% should fail 80% threshold");
+        assert!(50.0 < threshold, "50% should fail 80% threshold");
     }
 
     #[test]
     fn threshold_determines_exit_code() {
-        let determine_exit = |score: f64, threshold: f64| -> i32 {
-            if score >= threshold {
-                0 // Success
-            } else {
-                1 // Failure
-            }
-        };
+        let determine_exit = |score: f64, threshold: f64| -> i32 { i32::from(score < threshold) };
 
         assert_eq!(determine_exit(100.0, 80.0), 0);
         assert_eq!(determine_exit(80.0, 80.0), 0);

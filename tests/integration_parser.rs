@@ -1,3 +1,6 @@
+// Allow panics and expects in test code - tests need to fail loudly
+#![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
 //! Integration tests for the parser module
 //!
 //! These tests verify that the parser correctly:
@@ -64,7 +67,7 @@ mod discover_files {
     #[test]
     fn excludes_generated_files() {
         // Create a mock .g.dart file and verify it would be excluded
-        let exclusion_patterns = vec![
+        let exclusion_patterns = [
             "**/*.g.dart",
             "**/*.freezed.dart",
             "**/*.mocks.dart",
@@ -282,6 +285,7 @@ mod parse_dart {
     }
 
     /// Helper function to count nodes of specific kinds in the AST
+    #[allow(clippy::only_used_in_recursion)]
     fn count_nodes_of_kind(node: &tree_sitter::Node<'_>, source: &str, kinds: &[&str]) -> usize {
         let mut count = 0;
 

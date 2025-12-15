@@ -1,3 +1,6 @@
+// Allow panics and expects in test code - tests need to fail loudly
+#![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
 //! High-level integration tests for dart_mutant
 //!
 //! These tests verify the ENTIRE mutation testing pipeline works correctly:
