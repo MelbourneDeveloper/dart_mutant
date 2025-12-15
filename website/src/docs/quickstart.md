@@ -86,15 +86,15 @@ dart_mutant --incremental --base-ref main
 
 ## Common Options
 
-| Option | Description |
-|--------|-------------|
-| `--path <dir>` | Project directory (default: current) |
-| `--parallel <n>` | Number of parallel test jobs |
-| `--sample <n>` | Test only n random mutations |
-| `--timeout <s>` | Per-mutation timeout in seconds |
-| `--html` | Generate HTML report |
-| `--open` | Open report in browser |
-| `--quiet` | Minimal output |
+| Option           | Description                          |
+| ---------------- | ------------------------------------ |
+| `--path <dir>`   | Project directory (default: current) |
+| `--parallel <n>` | Number of parallel test jobs         |
+| `--sample <n>`   | Test only n random mutations         |
+| `--timeout <s>`  | Per-mutation timeout in seconds      |
+| `--html`         | Generate HTML report                 |
+| `--open`         | Open report in browser               |
+| `--quiet`        | Minimal output                       |
 
 ## Next Steps
 

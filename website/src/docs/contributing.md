@@ -201,6 +201,7 @@ Releases are automated via GitHub Actions:
 4. Push tag: `git push origin v0.2.0`
 
 Binaries are built for:
+
 - Linux (x86_64, aarch64)
 - macOS (x86_64, aarch64)
 - Windows (x86_64)

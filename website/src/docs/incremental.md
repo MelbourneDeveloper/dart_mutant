@@ -47,6 +47,7 @@ dart_mutant --incremental --base-ref HEAD~1
 ### Default Base
 
 If `--base-ref` is not specified, dart_mutant uses:
+
 1. `main` if it exists
 2. `master` if main doesn't exist
 3. Error if neither exists
@@ -68,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for git diff
+          fetch-depth: 0 # Full history for git diff
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
@@ -144,11 +145,11 @@ jobs:
 
 ## Performance Comparison
 
-| Mode | Files | Mutations | Time |
-|------|-------|-----------|------|
-| Full | 50 | 2,000 | 15 min |
-| Incremental (3 files) | 3 | 120 | 1 min |
-| Incremental (10 files) | 10 | 400 | 4 min |
+| Mode                   | Files | Mutations | Time   |
+| ---------------------- | ----- | --------- | ------ |
+| Full                   | 50    | 2,000     | 15 min |
+| Incremental (3 files)  | 3     | 120       | 1 min  |
+| Incremental (10 files) | 10    | 400       | 4 min  |
 
 ## Limitations
 

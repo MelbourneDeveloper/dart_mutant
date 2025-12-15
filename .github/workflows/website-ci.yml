@@ -1,0 +1,46 @@
+name: Website CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'website/**'
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting (Prettier)
+        run: npx prettier --check "src/**/*.{njk,css,js,md}"
+
+      - name: Lint CSS (Stylelint)
+        run: npx stylelint "src/**/*.css"
+
+      - name: Lint JavaScript (ESLint)
+        run: npx eslint "src/**/*.js"
+
+      - name: Build site
+        run: npm run build
+
+      - name: Check for broken links
+        run: npx hyperlink _site --root _site -r

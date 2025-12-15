@@ -69,7 +69,9 @@
 }
 
 /* Reset & Base */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -106,7 +108,12 @@ body::before {
 }
 
 /* Typography */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-display);
   font-weight: 700;
   line-height: 1.2;
@@ -140,7 +147,8 @@ a:hover {
   color: var(--color-accent);
 }
 
-code, pre {
+code,
+pre {
   font-family: var(--font-mono);
 }
 
@@ -315,8 +323,16 @@ pre code {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.3; transform: translateX(-50%) scale(1); }
-  50% { opacity: 0.5; transform: translateX(-50%) scale(1.1); }
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateX(-50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: translateX(-50%) scale(1.1);
+  }
 }
 
 .hero-content {
@@ -433,9 +449,17 @@ pre code {
   border-radius: 50%;
 }
 
-.hero-code-dot:nth-child(1) { background: #ff5f57; }
-.hero-code-dot:nth-child(2) { background: #febc2e; }
-.hero-code-dot:nth-child(3) { background: #28c840; }
+.hero-code-dot:nth-child(1) {
+  background: #ff5f57;
+}
+
+.hero-code-dot:nth-child(2) {
+  background: #febc2e;
+}
+
+.hero-code-dot:nth-child(3) {
+  background: #28c840;
+}
 
 .hero-code-title {
   margin-left: auto;
@@ -450,10 +474,21 @@ pre code {
   border-radius: 0;
 }
 
-.hero-code .comment { color: var(--text-muted); }
-.hero-code .command { color: var(--color-primary); }
-.hero-code .output { color: var(--text-secondary); }
-.hero-code .highlight { color: var(--color-secondary); }
+.hero-code .comment {
+  color: var(--text-muted);
+}
+
+.hero-code .command {
+  color: var(--color-primary);
+}
+
+.hero-code .output {
+  color: var(--text-secondary);
+}
+
+.hero-code .highlight {
+  color: var(--color-secondary);
+}
 
 /* Features Section */
 .features {
@@ -769,14 +804,29 @@ pre code {
   border-radius: 50%;
 }
 
-.score-stat-dot.killed { background: var(--color-killed); }
-.score-stat-dot.survived { background: var(--color-survived); }
-.score-stat-dot.timeout { background: var(--color-timeout); }
+.score-stat-dot.killed {
+  background: var(--color-killed);
+}
+
+.score-stat-dot.survived {
+  background: var(--color-survived);
+}
+
+.score-stat-dot.timeout {
+  background: var(--color-timeout);
+}
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-in {

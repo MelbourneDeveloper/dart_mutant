@@ -30,6 +30,7 @@ A mutation **survives** when all tests pass despite the code change.
 ```
 
 **This needs attention!** Either:
+
 - Your tests don't cover this case
 - Your tests execute this code but don't verify the result
 - The mutation is equivalent (functionally identical)
@@ -65,20 +66,20 @@ Mutation Score = Killed / (Killed + Survived)
 
 ### Interpreting Scores
 
-| Score | Interpretation |
-|-------|---------------|
-| 90%+ | Excellent - comprehensive test suite |
-| 80-89% | Good - strong coverage with minor gaps |
-| 70-79% | Acceptable - some improvement needed |
+| Score  | Interpretation                           |
+| ------ | ---------------------------------------- |
+| 90%+   | Excellent - comprehensive test suite     |
+| 80-89% | Good - strong coverage with minor gaps   |
+| 70-79% | Acceptable - some improvement needed     |
 | 60-69% | Fair - significant gaps in test coverage |
-| <60% | Poor - tests miss many potential bugs |
+| <60%   | Poor - tests miss many potential bugs    |
 
 ### Score vs. Code Coverage
 
-| Metric | What It Measures |
-|--------|-----------------|
-| Code Coverage | Lines/branches *executed* during tests |
-| Mutation Score | Code *verified* by assertions |
+| Metric         | What It Measures                       |
+| -------------- | -------------------------------------- |
+| Code Coverage  | Lines/branches _executed_ during tests |
+| Mutation Score | Code _verified_ by assertions          |
 
 > A 100% code coverage with 60% mutation score means 40% of your code is executed but not actually tested!
 
@@ -174,6 +175,7 @@ dart_mutant --json >> mutation-history.jsonl
 ```
 
 Set incremental goals:
+
 - Week 1: Reach 70%
 - Week 2: Reach 75%
 - Week 3: Reach 80%

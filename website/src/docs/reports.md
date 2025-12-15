@@ -120,6 +120,7 @@ dart_mutant --junit
 Most CI systems automatically parse JUnit XML:
 
 **GitHub Actions:**
+
 ```yaml
 - uses: dorny/test-reporter@v1
   with:
@@ -129,6 +130,7 @@ Most CI systems automatically parse JUnit XML:
 ```
 
 **GitLab CI:**
+
 ```yaml
 artifacts:
   reports:
@@ -144,6 +146,7 @@ dart_mutant --html --json --junit
 ```
 
 Output:
+
 ```
 ./mutation-reports/
 ├── mutation-report.html

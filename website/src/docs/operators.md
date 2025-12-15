@@ -11,19 +11,20 @@ dart_mutant includes 40+ mutation operators organized by category. Each operator
 
 Mutations that change mathematical operations.
 
-| Original | Mutated To |
-|----------|------------|
-| `a + b` | `a - b`, `a * b`, `a / b` |
-| `a - b` | `a + b`, `a * b`, `a / b` |
-| `a * b` | `a / b`, `a + b`, `a - b` |
-| `a / b` | `a * b`, `a + b`, `a - b` |
-| `a % b` | `a * b` |
-| `a++` | `a--` |
-| `a--` | `a++` |
-| `++a` | `--a` |
-| `--a` | `++a` |
+| Original | Mutated To                |
+| -------- | ------------------------- |
+| `a + b`  | `a - b`, `a * b`, `a / b` |
+| `a - b`  | `a + b`, `a * b`, `a / b` |
+| `a * b`  | `a / b`, `a + b`, `a - b` |
+| `a / b`  | `a * b`, `a + b`, `a - b` |
+| `a % b`  | `a * b`                   |
+| `a++`    | `a--`                     |
+| `a--`    | `a++`                     |
+| `++a`    | `--a`                     |
+| `--a`    | `++a`                     |
 
 **Example:**
+
 ```dart
 // Original
 int calculate(int x, int y) => x + y;
@@ -36,16 +37,17 @@ int calculate(int x, int y) => x - y;  // + → -
 
 Mutations that change relational comparisons.
 
-| Original | Mutated To |
-|----------|------------|
-| `a < b` | `a <= b`, `a >= b`, `a > b` |
-| `a > b` | `a >= b`, `a <= b`, `a < b` |
-| `a <= b` | `a < b`, `a >= b`, `a > b` |
-| `a >= b` | `a > b`, `a <= b`, `a < b` |
-| `a == b` | `a != b` |
-| `a != b` | `a == b` |
+| Original | Mutated To                  |
+| -------- | --------------------------- |
+| `a < b`  | `a <= b`, `a >= b`, `a > b` |
+| `a > b`  | `a >= b`, `a <= b`, `a < b` |
+| `a <= b` | `a < b`, `a >= b`, `a > b`  |
+| `a >= b` | `a > b`, `a <= b`, `a < b`  |
+| `a == b` | `a != b`                    |
+| `a != b` | `a == b`                    |
 
 **Example:**
+
 ```dart
 // Original
 bool isAdult(int age) => age >= 18;
@@ -58,13 +60,14 @@ bool isAdult(int age) => age > 18;  // >= → >
 
 Mutations that change boolean logic.
 
-| Original | Mutated To |
-|----------|------------|
-| `a && b` | `a \|\| b` |
-| `a \|\| b` | `a && b` |
-| `!a` | `a` (negation removed) |
+| Original   | Mutated To             |
+| ---------- | ---------------------- |
+| `a && b`   | `a \|\| b`             |
+| `a \|\| b` | `a && b`               |
+| `!a`       | `a` (negation removed) |
 
 **Example:**
+
 ```dart
 // Original
 bool canAccess(bool isAdmin, bool isOwner) => isAdmin && isOwner;
@@ -78,11 +81,12 @@ bool canAccess(bool isAdmin, bool isOwner) => isAdmin || isOwner;  // && → ||
 Direct true/false swaps.
 
 | Original | Mutated To |
-|----------|------------|
-| `true` | `false` |
-| `false` | `true` |
+| -------- | ---------- |
+| `true`   | `false`    |
+| `false`  | `true`     |
 
 **Example:**
+
 ```dart
 // Original
 bool isEnabled = true;
@@ -95,13 +99,14 @@ bool isEnabled = false;  // true → false
 
 Dart-specific null-aware mutations.
 
-| Original | Mutated To |
-|----------|------------|
-| `a ?? b` | `a` (null coalescing removed) |
-| `a?.b` | `a.b` (null-aware removed) |
+| Original  | Mutated To                      |
+| --------- | ------------------------------- |
+| `a ?? b`  | `a` (null coalescing removed)   |
+| `a?.b`    | `a.b` (null-aware removed)      |
 | `a ??= b` | `a = b` (null-aware assignment) |
 
 **Example:**
+
 ```dart
 // Original
 String getName(User? user) => user?.name ?? 'Anonymous';
@@ -117,15 +122,16 @@ String getName(User? user) => user?.name;  // ?? removed (returns null)
 
 Mutations that affect branching and loops.
 
-| Original | Mutated To |
-|----------|------------|
-| `if (condition)` | `if (true)` |
-| `if (condition)` | `if (false)` |
+| Original            | Mutated To      |
+| ------------------- | --------------- |
+| `if (condition)`    | `if (true)`     |
+| `if (condition)`    | `if (false)`    |
 | `while (condition)` | `while (false)` |
-| `break` | (removed) |
-| `continue` | (removed) |
+| `break`             | (removed)       |
+| `continue`          | (removed)       |
 
 **Example:**
+
 ```dart
 // Original
 void process(bool shouldRun) {
@@ -153,10 +159,10 @@ void process(bool shouldRun) {
 
 Mutations for string values.
 
-| Original | Mutated To |
-|----------|------------|
+| Original       | Mutated To          |
+| -------------- | ------------------- |
 | `"any string"` | `""` (empty string) |
-| `""` | `"mutant"` |
+| `""`           | `"mutant"`          |
 
 > **Note:** String mutations are limited to avoid noise. Only strings in meaningful positions are mutated.
 
@@ -165,21 +171,21 @@ Mutations for string values.
 Compound assignment mutations.
 
 | Original | Mutated To |
-|----------|------------|
-| `a += b` | `a -= b` |
-| `a -= b` | `a += b` |
-| `a *= b` | `a /= b` |
-| `a /= b` | `a *= b` |
+| -------- | ---------- |
+| `a += b` | `a -= b`   |
+| `a -= b` | `a += b`   |
+| `a *= b` | `a /= b`   |
+| `a /= b` | `a *= b`   |
 
 ## Return Values
 
 Mutations that change what functions return.
 
-| Original | Mutated To |
-|----------|------------|
+| Original       | Mutated To                         |
+| -------------- | ---------------------------------- |
 | `return value` | `return null` (for nullable types) |
-| `return true` | `return false` |
-| `return false` | `return true` |
+| `return true`  | `return false`                     |
+| `return false` | `return true`                      |
 
 ## Excluded from Mutation
 

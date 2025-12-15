@@ -97,7 +97,8 @@ layout: base.njk
     margin-bottom: var(--spacing-lg);
   }
 
-  .docs-content ul, .docs-content ol {
+  .docs-content ul,
+  .docs-content ol {
     margin-bottom: var(--spacing-md);
     padding-left: var(--spacing-xl);
     color: var(--text-secondary);
@@ -196,7 +197,5 @@ layout: base.njk
     </ul>
   </aside>
 
-  <article class="docs-content">
-    {{ content | safe }}
-  </article>
+  <article class="docs-content">{{ content | safe }}</article>
 </div>

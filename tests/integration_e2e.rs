@@ -8,6 +8,9 @@
 //! - Report generation
 //!
 //! These are HIGH-LEVEL tests that test the actual tool behavior.
+//!
+//! IMPORTANT: Tests that run actual mutations use COPIES of fixtures
+//! to prevent corrupting the original fixture files.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -40,6 +43,31 @@ fn dart_available() -> bool {
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+/// Copy fixtures to a temp directory to prevent mutation from corrupting originals.
+/// Returns the temp directory path (which will be automatically cleaned up on drop).
+fn copy_fixtures_to_temp() -> Option<tempfile::TempDir> {
+    let temp_dir = tempfile::tempdir().ok()?;
+    let source = fixtures_path();
+    let dest = temp_dir.path().join("simple_dart_project");
+
+    // Copy recursively using walkdir
+    for entry in walkdir::WalkDir::new(&source).into_iter().filter_map(|e| e.ok()) {
+        let rel_path = entry.path().strip_prefix(&source).ok()?;
+        let target = dest.join(rel_path);
+
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&target).ok()?;
+        } else {
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent).ok()?;
+            }
+            std::fs::copy(entry.path(), &target).ok()?;
+        }
+    }
+
+    Some(temp_dir)
 }
 
 
@@ -388,10 +416,17 @@ mod full_pipeline_e2e {
             return;
         }
 
-        // First, run dart pub get
+        // IMPORTANT: Copy fixtures to temp dir to prevent corruption during mutation testing
+        let Some(temp_fixtures) = copy_fixtures_to_temp() else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let project_path = temp_fixtures.path().join("simple_dart_project");
+
+        // Run dart pub get on the COPY
         let pub_get = Command::new("dart")
             .args(["pub", "get"])
-            .current_dir(fixtures_path())
+            .current_dir(&project_path)
             .output();
 
         if pub_get.is_err() || !pub_get.unwrap().status.success() {
@@ -404,7 +439,7 @@ mod full_pipeline_e2e {
 
         let output = Command::new(binary_path())
             .args([
-                "--path", fixtures_path().to_str().unwrap(),
+                "--path", project_path.to_str().unwrap(),
                 "--output", temp_output.to_str().unwrap(),
                 "--html",
                 "--json",
@@ -440,7 +475,7 @@ mod full_pipeline_e2e {
             );
         }
 
-        // Cleanup
+        // Cleanup (temp_fixtures auto-cleans on drop, but output dir needs manual cleanup)
         std::fs::remove_dir_all(&temp_output).ok();
     }
 
@@ -451,10 +486,17 @@ mod full_pipeline_e2e {
             return;
         }
 
-        // First, run dart pub get
+        // IMPORTANT: Copy fixtures to temp dir to prevent corruption during mutation testing
+        let Some(temp_fixtures) = copy_fixtures_to_temp() else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let project_path = temp_fixtures.path().join("simple_dart_project");
+
+        // Run dart pub get on the COPY
         let pub_get = Command::new("dart")
             .args(["pub", "get"])
-            .current_dir(fixtures_path())
+            .current_dir(&project_path)
             .output();
 
         if pub_get.is_err() || !pub_get.unwrap().status.success() {
@@ -467,7 +509,7 @@ mod full_pipeline_e2e {
 
         let output = Command::new(binary_path())
             .args([
-                "--path", fixtures_path().to_str().unwrap(),
+                "--path", project_path.to_str().unwrap(),
                 "--output", temp_output.to_str().unwrap(),
                 "--ai-report",
                 "--sample", "3", // Only test 3 mutations for speed
@@ -523,7 +565,7 @@ mod full_pipeline_e2e {
             println!("AI report not generated (possibly no mutations tested)");
         }
 
-        // Cleanup
+        // Cleanup (temp_fixtures auto-cleans on drop)
         std::fs::remove_dir_all(&temp_output).ok();
     }
 }
