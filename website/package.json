@@ -1,0 +1,16 @@
+{
+  "name": "dart-mutant-website",
+  "version": "1.0.0",
+  "description": "Website for dart_mutant - mutation testing for Dart",
+  "scripts": {
+    "start": "eleventy --serve",
+    "build": "eleventy",
+    "clean": "rm -rf _site"
+  },
+  "keywords": ["dart", "mutation-testing", "eleventy"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@11ty/eleventy": "^3.1.2"
+  }
+}

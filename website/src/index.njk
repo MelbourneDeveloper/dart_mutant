@@ -1,0 +1,267 @@
+---
+layout: base.njk
+title: dart_mutant
+description: Blazingly fast mutation testing for Dart. AST-based mutations that hunt down weak tests.
+---
+
+<!-- Hero Section -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="hero-badge-icon">⚡</span>
+        <span>Powered by Rust & tree-sitter</span>
+      </div>
+
+      <h1 class="hero-title">
+        Hunt Down <span class="highlight">Weak Tests</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        dart_mutant unleashes mutations on your Dart code to find tests that pass when they shouldn't.
+        AST-based precision. Zero false positives. Blazing fast.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/docs/" class="btn btn-primary">
+          <span>Get Started</span>
+          <span>→</span>
+        </a>
+        <a href="https://github.com/user/dart_mutant" class="btn btn-secondary" target="_blank">
+          View on GitHub
+        </a>
+      </div>
+
+      <!-- Code Demo -->
+      <div class="hero-code">
+        <div class="hero-code-header">
+          <span class="hero-code-dot"></span>
+          <span class="hero-code-dot"></span>
+          <span class="hero-code-dot"></span>
+          <span class="hero-code-title">terminal</span>
+        </div>
+        <pre><code><span class="comment"># Navigate to your Dart project</span>
+<span class="command">$ cd your_dart_project</span>
+
+<span class="comment"># Run mutation testing</span>
+<span class="command">$ dart_mutant</span>
+
+<span class="output">  Discovering Dart files...</span>
+<span class="output">  Found 12 files, 847 mutation candidates</span>
+<span class="output">  Running mutation tests [████████████████████] 847/847</span>
+
+<span class="output">  Mutation Score: </span><span class="highlight">87.2%</span>
+<span class="output">  Killed: 739  Survived: 108</span></code></pre>
+      </div>
+
+      <!-- Score Demo -->
+      <div class="score-demo">
+        <div class="score-header">
+          <span class="score-label">Mutation Score</span>
+          <span class="score-value">87.2%</span>
+        </div>
+        <div class="score-bar">
+          <div class="score-fill" style="width: 0%" data-score="87.2%"></div>
+        </div>
+        <div class="score-stats">
+          <span class="score-stat">
+            <span class="score-stat-dot killed"></span>
+            739 Killed
+          </span>
+          <span class="score-stat">
+            <span class="score-stat-dot survived"></span>
+            108 Survived
+          </span>
+          <span class="score-stat">
+            <span class="score-stat-dot timeout"></span>
+            0 Timeout
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="section features" id="features">
+  <div class="container">
+    <div class="section-header">
+      <h2>Why <span class="text-gradient">dart_mutant</span>?</h2>
+      <p>Code coverage lies. A line can be "covered" without being tested. Mutation testing reveals the truth.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🧬</div>
+        <h3>AST-Based Mutations</h3>
+        <p>Unlike regex-based tools, dart_mutant parses your code into an AST using tree-sitter. Only valid, meaningful mutations that compile.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Blazingly Fast</h3>
+        <p>Written in Rust with parallel test execution. Mutation test your entire codebase in minutes, not hours.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <h3>Zero False Positives</h3>
+        <p>Smart exclusions for generated code, comments, and strings. Every surviving mutant is a real gap in your tests.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Beautiful Reports</h3>
+        <p>Dark-themed HTML reports with per-file breakdown. See exactly which mutations survived and where to add tests.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔄</div>
+        <h3>CI/CD Ready</h3>
+        <p>JUnit XML output, threshold enforcement, and quiet mode. Fail builds when mutation score drops below target.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>AI-Powered (Optional)</h3>
+        <p>Use Claude or local LLMs to identify high-value mutation locations. Focus testing where it matters most.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="section how-it-works" id="how-it-works">
+  <div class="container">
+    <div class="section-header">
+      <h2>How It <span class="text-gradient">Works</span></h2>
+      <p>Mutation testing injects bugs into your code to verify your tests catch them.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Parse Your Code</h3>
+          <p>dart_mutant scans your <code>lib/</code> directory and builds an AST for each Dart file using tree-sitter. Generated files (<code>*.g.dart</code>, <code>*.freezed.dart</code>) are automatically excluded.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Generate Mutations</h3>
+          <p>The AST is walked to find mutation candidates: arithmetic operators, comparisons, boolean literals, null-safety operators, and more. Each mutation is a small, targeted change.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Run Tests</h3>
+          <p>For each mutation, dart_mutant modifies the source, runs <code>dart test</code>, and checks if any test fails. Mutations are tested in parallel for speed.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Report Results</h3>
+          <p><strong>Killed</strong> mutations = your tests caught the bug. <strong>Survived</strong> mutations = your tests missed it. The mutation score shows your true test effectiveness.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Mutation Operators -->
+<section class="section operators" id="operators">
+  <div class="container">
+    <div class="section-header">
+      <h2>40+ <span class="text-gradient">Mutation Operators</span></h2>
+      <p>dart_mutant applies a comprehensive set of mutations to thoroughly test your test suite.</p>
+    </div>
+
+    <table class="operators-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Mutations</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Arithmetic</td>
+          <td><code>+</code> <span class="mutation-arrow">→</span> <code>-</code>, <code>*</code> <span class="mutation-arrow">→</span> <code>/</code>, <code>++</code> <span class="mutation-arrow">→</span> <code>--</code></td>
+        </tr>
+        <tr>
+          <td>Comparison</td>
+          <td><code>></code> <span class="mutation-arrow">→</span> <code>>=</code>, <code>==</code> <span class="mutation-arrow">→</span> <code>!=</code>, <code><</code> <span class="mutation-arrow">→</span> <code><=</code></td>
+        </tr>
+        <tr>
+          <td>Logical</td>
+          <td><code>&&</code> <span class="mutation-arrow">→</span> <code>||</code>, <code>!</code> <span class="mutation-arrow">→</span> (removed)</td>
+        </tr>
+        <tr>
+          <td>Null Safety</td>
+          <td><code>??</code> <span class="mutation-arrow">→</span> (removed), <code>?.</code> <span class="mutation-arrow">→</span> <code>.</code></td>
+        </tr>
+        <tr>
+          <td>Control Flow</td>
+          <td><code>if(x)</code> <span class="mutation-arrow">→</span> <code>if(true)</code>, <code>if(false)</code></td>
+        </tr>
+        <tr>
+          <td>Literals</td>
+          <td><code>true</code> <span class="mutation-arrow">→</span> <code>false</code>, <code>"string"</code> <span class="mutation-arrow">→</span> <code>""</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="text-align: center; margin-top: var(--spacing-xl);">
+      <a href="/docs/operators/" class="btn btn-secondary">View All Operators →</a>
+    </p>
+  </div>
+</section>
+
+<!-- Stats Section -->
+<section class="section stats">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-value">40+</div>
+        <div class="stat-label">Mutation Operators</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">10x</div>
+        <div class="stat-label">Faster than regex tools</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">0</div>
+        <div class="stat-label">False Positives</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">100%</div>
+        <div class="stat-label">Dart 3 Support</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section cta">
+  <div class="container">
+    <div class="cta-box">
+      <h2>Ready to <span class="text-gradient">Hunt Mutants</span>?</h2>
+      <p>Stop trusting code coverage. Start mutation testing your Dart projects today.</p>
+      <div class="hero-actions">
+        <a href="/docs/" class="btn btn-primary">
+          <span>Read the Docs</span>
+          <span>→</span>
+        </a>
+        <a href="https://github.com/user/dart_mutant" class="btn btn-secondary" target="_blank">
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

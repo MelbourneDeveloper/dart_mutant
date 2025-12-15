@@ -1,0 +1,216 @@
+[package]
+name = "dart_mutant"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "A mutation testing tool for Dart using tree-sitter AST parsing"
+license = "MIT"
+repository = "https://github.com/user/dart_mutant"
+readme = "README.md"
+keywords = ["mutation-testing", "dart", "testing", "tree-sitter"]
+categories = ["development-tools::testing"]
+
+[lints.rust]
+# ALL ERRORS - NO WARNINGS
+unsafe_code = "deny"
+
+# Future compatibility - ERRORS
+future_incompatible = { level = "deny", priority = -1 }
+rust_2018_idioms = { level = "deny", priority = -1 }
+rust_2021_compatibility = { level = "deny", priority = -1 }
+rust_2024_compatibility = { level = "deny", priority = -1 }
+
+# Missing documentation - ERRORS
+missing_docs = "deny"
+missing_debug_implementations = "deny"
+
+# Code correctness - ERRORS
+unused = { level = "deny", priority = -1 }
+dead_code = "deny"
+unreachable_code = "deny"
+unreachable_patterns = "deny"
+
+# Type safety - ERRORS
+trivial_casts = "deny"
+trivial_numeric_casts = "deny"
+
+# Async - ERRORS
+elided_lifetimes_in_paths = "deny"
+
+# Other strict lints - ERRORS
+let_underscore_drop = "deny"
+macro_use_extern_crate = "deny"
+meta_variable_misuse = "deny"
+missing_abi = "deny"
+non_ascii_idents = "deny"
+single_use_lifetimes = "deny"
+unit_bindings = "deny"
+unused_import_braces = "deny"
+unused_lifetimes = "deny"
+unused_macro_rules = "deny"
+unused_qualifications = "deny"
+variant_size_differences = "deny"
+
+[lints.clippy]
+# ALL ERRORS - NO WARNINGS
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+
+# Dangerous patterns - ERRORS
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+# Security-related - ERRORS
+mem_forget = "deny"
+
+# Code quality - ERRORS
+fn_params_excessive_bools = "deny"
+
+# Allow some that are too strict for this project
+multiple_crate_versions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+struct_excessive_bools = "allow"
+doc_markdown = "allow"
+redundant_pub_crate = "allow"
+significant_drop_tightening = "allow"
+missing_const_for_fn = "allow"
+unused_self = "allow"
+uninlined_format_args = "allow"
+unnecessary_wraps = "allow"
+option_if_let_else = "allow"
+redundant_closure_for_method_calls = "allow"
+similar_names = "allow"
+match_same_arms = "allow"
+items_after_statements = "allow"
+string_lit_as_bytes = "allow"
+needless_raw_string_hashes = "allow"
+non_ascii_literal = "allow"
+suboptimal_flops = "allow"
+iter_without_into_iter = "allow"
+into_iter_without_iter = "allow"
+too_many_arguments = "allow"
+needless_pass_by_value = "allow"
+redundant_clone = "allow"
+trivially_copy_pass_by_ref = "allow"
+unnecessary_map_or = "allow"
+field_reassign_with_default = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+or_fun_call = "allow"
+too_many_lines = "allow"
+redundant_closure = "allow"
+format_collect = "allow"
+cognitive_complexity = "allow"
+match_wildcard_for_single_variants = "allow"
+string_add_assign = "allow"
+if_not_else = "allow"
+
+[dependencies]
+# Tree-sitter for AST parsing
+tree-sitter = "0.24"
+tree-sitter-dart = "0.0.4"
+
+# CLI framework
+clap = { version = "4.5", features = ["derive", "color", "env"] }
+
+# Async runtime for parallel execution
+tokio = { version = "1.41", features = ["full"] }
+
+# Serialization for reports
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# File system utilities
+walkdir = "2.5"
+glob = "0.3"
+
+# Console output
+colored = "2.1"
+indicatif = { version = "0.17", features = ["rayon"] }
+console = "0.15"
+
+# Parallel processing
+rayon = "1.10"
+
+# Random selection for sampling
+rand = "0.8"
+
+# Time tracking
+chrono = { version = "0.4", features = ["serde"] }
+
+# Diff generation
+similar = "2.6"
+
+# UUID generation
+uuid = { version = "1.11", features = ["v4"] }
+
+# MD5 hashing for mutation IDs
+md5 = "0.7"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Command detection
+which = "7.0"
+
+# HTTP client for AI APIs
+reqwest = { version = "0.12", features = ["json"] }
+
+[[bin]]
+name = "dart_mutant"
+path = "src/main.rs"
+
+[dev-dependencies]
+# For testing JSON report structure
+serde_json = "1.0"
+# For walking directories in tests
+walkdir = "2.5"
+# For glob pattern matching in tests
+glob = "0.3"
+# For checking if commands exist in tests
+which = "7.0"
+# For async parallelism tests
+tokio = { version = "1.41", features = ["full", "test-util", "macros", "rt-multi-thread"] }
+futures = "0.3"
+# For enforcing serial test execution on shared fixtures
+serial_test = "3.2"
+
+# Integration test binaries
+[[test]]
+name = "integration_parser"
+path = "tests/integration_parser.rs"
+
+[[test]]
+name = "integration_mutation"
+path = "tests/integration_mutation.rs"
+
+[[test]]
+name = "integration_runner"
+path = "tests/integration_runner.rs"
+
+[[test]]
+name = "integration_report"
+path = "tests/integration_report.rs"
+
+[[test]]
+name = "integration_e2e"
+path = "tests/integration_e2e.rs"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"

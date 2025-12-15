@@ -1,0 +1,23 @@
+{
+    "rust-analyzer.cargo.allTargets": true,
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.check.allTargets": true,
+    "rust-analyzer.check.extraArgs": ["--all-targets", "--", "-W", "clippy::all"],
+    "rust-analyzer.check.workspace": true,
+    "rust-analyzer.cargo.extraArgs": ["--all-targets"],
+    "rust-analyzer.runnables.extraTestBinaryArgs": [],
+    "rust-analyzer.cargo.target": null,
+    "rust-analyzer.checkOnSave": true,
+    "rust-analyzer.cargo.allFeatures": true,
+    "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.lens.enable": true,
+    "rust-analyzer.lens.run.enable": true,
+    "rust-analyzer.lens.implementations.enable": true,
+    "rust-analyzer.hover.actions.run.enable": true,
+    "rust-analyzer.inlayHints.closureReturnTypeHints.enable": "always",
+    "rust-analyzer.diagnostics.enable": true,
+    "rust-analyzer.diagnostics.experimental.enable": true,
+    "rust-analyzer.cargo.buildScripts.overrideCommand": null,
+    "rust-analyzer.check.overrideCommand": null
+}

@@ -1,0 +1,202 @@
+---
+layout: base.njk
+---
+
+<style>
+  .docs-container {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: var(--spacing-2xl);
+    padding-top: calc(70px + var(--spacing-2xl));
+    min-height: 100vh;
+  }
+
+  @media (max-width: 900px) {
+    .docs-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .docs-sidebar {
+    position: sticky;
+    top: calc(70px + var(--spacing-xl));
+    height: fit-content;
+    padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+  }
+
+  @media (max-width: 900px) {
+    .docs-sidebar {
+      position: static;
+    }
+  }
+
+  .docs-nav-title {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-primary);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .docs-nav-list {
+    list-style: none;
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .docs-nav-link {
+    display: block;
+    padding: var(--spacing-sm) 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    border-left: 2px solid transparent;
+    padding-left: var(--spacing-md);
+    transition: all var(--transition-fast);
+  }
+
+  .docs-nav-link:hover,
+  .docs-nav-link.active {
+    color: var(--color-primary);
+    border-left-color: var(--color-primary);
+    background: var(--color-primary-glow);
+    margin-left: calc(-1 * var(--spacing-md));
+    padding-left: calc(var(--spacing-md) * 2);
+  }
+
+  .docs-content {
+    padding-bottom: var(--spacing-3xl);
+  }
+
+  .docs-content h1 {
+    margin-bottom: var(--spacing-lg);
+    font-family: var(--font-display);
+  }
+
+  .docs-content h2 {
+    margin-top: var(--spacing-2xl);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .docs-content h3 {
+    margin-top: var(--spacing-xl);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .docs-content p {
+    margin-bottom: var(--spacing-md);
+    max-width: none;
+  }
+
+  .docs-content pre {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .docs-content ul, .docs-content ol {
+    margin-bottom: var(--spacing-md);
+    padding-left: var(--spacing-xl);
+    color: var(--text-secondary);
+  }
+
+  .docs-content li {
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .docs-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--spacing-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+  }
+
+  .docs-content th,
+  .docs-content td {
+    padding: var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .docs-content th {
+    background: var(--bg-medium);
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+
+  .docs-content tr:last-child td {
+    border-bottom: none;
+  }
+
+  .docs-content blockquote {
+    margin: var(--spacing-lg) 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-left: 3px solid var(--color-primary);
+    background: var(--bg-card);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  }
+
+  .docs-content blockquote p {
+    margin: 0;
+  }
+
+  .docs-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  .docs-breadcrumb a {
+    color: var(--text-secondary);
+  }
+
+  .docs-breadcrumb span {
+    color: var(--text-muted);
+  }
+</style>
+
+<div class="container docs-container">
+  <aside class="docs-sidebar">
+    <div class="docs-nav-title">Getting Started</div>
+    <ul class="docs-nav-list">
+      <li><a href="/docs/" class="docs-nav-link">Introduction</a></li>
+      <li><a href="/docs/installation/" class="docs-nav-link">Installation</a></li>
+      <li><a href="/docs/quickstart/" class="docs-nav-link">Quick Start</a></li>
+    </ul>
+
+    <div class="docs-nav-title">Usage</div>
+    <ul class="docs-nav-list">
+      <li><a href="/docs/cli/" class="docs-nav-link">CLI Options</a></li>
+      <li><a href="/docs/operators/" class="docs-nav-link">Mutation Operators</a></li>
+      <li><a href="/docs/reports/" class="docs-nav-link">Reports</a></li>
+      <li><a href="/docs/filtering/" class="docs-nav-link">Filtering</a></li>
+    </ul>
+
+    <div class="docs-nav-title">Advanced</div>
+    <ul class="docs-nav-list">
+      <li><a href="/docs/ci/" class="docs-nav-link">CI/CD Integration</a></li>
+      <li><a href="/docs/ai/" class="docs-nav-link">AI-Powered Mutations</a></li>
+      <li><a href="/docs/incremental/" class="docs-nav-link">Incremental Testing</a></li>
+    </ul>
+
+    <div class="docs-nav-title">Reference</div>
+    <ul class="docs-nav-list">
+      <li><a href="/docs/interpreting/" class="docs-nav-link">Interpreting Results</a></li>
+      <li><a href="/docs/faq/" class="docs-nav-link">FAQ</a></li>
+      <li><a href="/docs/contributing/" class="docs-nav-link">Contributing</a></li>
+    </ul>
+  </aside>
+
+  <article class="docs-content">
+    {{ content | safe }}
+  </article>
+</div>

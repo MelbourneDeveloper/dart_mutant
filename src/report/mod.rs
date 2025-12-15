@@ -1,0 +1,1079 @@
+//! Beautiful HTML and JSON report generation
+//!
+//! Generates Stryker-compatible reports with stunning visuals.
+
+use crate::mutation::MutantStatus;
+use crate::runner::MutantTestResult;
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
+
+/// Helper trait for MutantStatus display
+pub trait MutantStatusDisplay {
+    /// Get CSS class for this status
+    fn css_class(&self) -> &'static str;
+    /// Get emoji for this status
+    fn emoji(&self) -> &'static str;
+}
+
+impl MutantStatusDisplay for MutantStatus {
+    fn css_class(&self) -> &'static str {
+        match self {
+            Self::Killed => "killed",
+            Self::Survived => "survived",
+            Self::Timeout => "timeout",
+            Self::NoCoverage => "no-coverage",
+            Self::Error | Self::Pending => "error",
+        }
+    }
+
+    fn emoji(&self) -> &'static str {
+        match self {
+            Self::Killed => "✅",
+            Self::Survived => "🔴",
+            Self::Timeout => "⏱️",
+            Self::NoCoverage => "🚫",
+            Self::Error | Self::Pending => "⚠️",
+        }
+    }
+}
+
+/// Overall mutation testing results
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MutationResult {
+    pub total: usize,
+    pub killed: usize,
+    pub survived: usize,
+    pub timeout: usize,
+    pub no_coverage: usize,
+    pub errors: usize,
+    pub mutation_score: f64,
+}
+
+impl Default for MutationResult {
+    fn default() -> Self {
+        Self {
+            total: 0,
+            killed: 0,
+            survived: 0,
+            timeout: 0,
+            no_coverage: 0,
+            errors: 0,
+            mutation_score: 0.0,
+        }
+    }
+}
+
+impl MutationResult {
+    pub fn from_results(results: &[MutantTestResult]) -> Self {
+        let mut r = Self::default();
+        r.total = results.len();
+
+        for result in results {
+            match result.status {
+                MutantStatus::Killed => r.killed += 1,
+                MutantStatus::Survived => r.survived += 1,
+                MutantStatus::Timeout => r.timeout += 1,
+                MutantStatus::NoCoverage => r.no_coverage += 1,
+                MutantStatus::Error | MutantStatus::Pending => r.errors += 1,
+            }
+        }
+
+        let detected = r.killed + r.timeout;
+        let valid = r.total - r.errors - r.no_coverage;
+        r.mutation_score = if valid > 0 {
+            (detected as f64 / valid as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        r
+    }
+}
+
+/// Generate a beautiful HTML report
+pub fn generate_html_report(
+    result: &MutationResult,
+    test_results: &[MutantTestResult],
+    dart_files: &[std::path::PathBuf],
+    output_path: &Path,
+) -> Result<()> {
+    // Group results by file
+    let mut by_file: HashMap<String, Vec<&MutantTestResult>> = HashMap::new();
+    for r in test_results {
+        let file = r.mutation.location.file.display().to_string();
+        by_file.entry(file).or_default().push(r);
+    }
+
+    // Calculate per-file stats
+    let mut file_stats: Vec<FileStats> = by_file
+        .iter()
+        .map(|(file, results)| {
+            let total = results.len();
+            let killed = results
+                .iter()
+                .filter(|r| matches!(r.status, MutantStatus::Killed | MutantStatus::Timeout))
+                .count();
+            let score = if total > 0 {
+                (killed as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            };
+
+            FileStats {
+                file: file.clone(),
+                total,
+                killed,
+                score,
+                mutants: results.iter().map(|r| (*r).clone()).collect(),
+            }
+        })
+        .collect();
+
+    file_stats.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+
+    let html = generate_html_content(result, &file_stats, dart_files.len());
+
+    std::fs::create_dir_all(output_path.parent().unwrap_or(Path::new(".")))?;
+    std::fs::write(output_path, html).context("Failed to write HTML report")?;
+
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct FileStats {
+    file: String,
+    total: usize,
+    killed: usize,
+    score: f64,
+    mutants: Vec<MutantTestResult>,
+}
+
+fn generate_html_content(result: &MutationResult, file_stats: &[FileStats], total_files: usize) -> String {
+    let score_color = if result.mutation_score >= 80.0 {
+        "#22c55e"
+    } else if result.mutation_score >= 60.0 {
+        "#eab308"
+    } else {
+        "#ef4444"
+    };
+
+    let files_html: String = file_stats
+        .iter()
+        .map(|f| generate_file_section(f))
+        .collect();
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dart Mutant - Mutation Testing Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {{
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #8b5cf6;
+            --killed: #22c55e;
+            --survived: #ef4444;
+            --timeout: #eab308;
+            --no-coverage: #64748b;
+            --error: #f97316;
+            --gradient-start: #3b82f6;
+            --gradient-end: #8b5cf6;
+        }}
+
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }}
+
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }}
+
+        /* Header */
+        .header {{
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 3rem;
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            border-radius: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }}
+
+        .header::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
+        }}
+
+        .logo {{
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }}
+
+        .tagline {{
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }}
+
+        /* Score Card */
+        .score-card {{
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }}
+
+        .score-display {{
+            background: var(--bg-secondary);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }}
+
+        .score-label {{
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }}
+
+        .score-value {{
+            font-size: 5rem;
+            font-weight: 700;
+            color: {score_color};
+            line-height: 1;
+        }}
+
+        .score-bar {{
+            width: 100%;
+            height: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 1.5rem;
+        }}
+
+        .score-bar-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, {score_color}, {score_color}aa);
+            border-radius: 6px;
+            transition: width 1s ease-out;
+        }}
+
+        /* Stats Grid */
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+        }}
+
+        .stat-card {{
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+
+        .stat-card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }}
+
+        .stat-value {{
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }}
+
+        .stat-label {{
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+
+        .stat-killed .stat-value {{ color: var(--killed); }}
+        .stat-survived .stat-value {{ color: var(--survived); }}
+        .stat-timeout .stat-value {{ color: var(--timeout); }}
+        .stat-no-coverage .stat-value {{ color: var(--no-coverage); }}
+        .stat-error .stat-value {{ color: var(--error); }}
+
+        /* Files Section */
+        .section-title {{
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }}
+
+        .section-title::before {{
+            content: '';
+            display: block;
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border-radius: 2px;
+        }}
+
+        .file-card {{
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+        }}
+
+        .file-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }}
+
+        .file-header:hover {{
+            background: var(--bg-tertiary);
+        }}
+
+        .file-name {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }}
+
+        .file-stats {{
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }}
+
+        .file-score {{
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+        }}
+
+        .file-score.high {{ background: rgba(34, 197, 94, 0.2); color: var(--killed); }}
+        .file-score.medium {{ background: rgba(234, 179, 8, 0.2); color: var(--timeout); }}
+        .file-score.low {{ background: rgba(239, 68, 68, 0.2); color: var(--survived); }}
+
+        .file-mutants {{
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }}
+
+        .file-content {{
+            display: none;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            background: var(--bg-primary);
+        }}
+
+        .file-card.expanded .file-content {{
+            display: block;
+        }}
+
+        /* Mutant List */
+        .mutant-item {{
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-secondary);
+            border-left: 3px solid transparent;
+        }}
+
+        .mutant-item.killed {{ border-left-color: var(--killed); }}
+        .mutant-item.survived {{ border-left-color: var(--survived); }}
+        .mutant-item.timeout {{ border-left-color: var(--timeout); }}
+
+        .mutant-status {{
+            font-size: 1.25rem;
+            width: 2rem;
+            text-align: center;
+        }}
+
+        .mutant-details {{
+            flex: 1;
+        }}
+
+        .mutant-location {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }}
+
+        .mutant-description {{
+            font-size: 0.9rem;
+        }}
+
+        .mutant-code {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg-primary);
+            border-radius: 0.5rem;
+            overflow-x: auto;
+        }}
+
+        .code-original {{
+            color: var(--survived);
+            text-decoration: line-through;
+            opacity: 0.7;
+        }}
+
+        .code-replacement {{
+            color: var(--killed);
+        }}
+
+        /* Summary Footer */
+        .footer {{
+            margin-top: 3rem;
+            padding: 1.5rem;
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }}
+
+        .footer a {{
+            color: var(--accent-primary);
+            text-decoration: none;
+        }}
+
+        .footer a:hover {{
+            text-decoration: underline;
+        }}
+
+        /* Filter Controls */
+        .filter-controls {{
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }}
+
+        .filter-label {{
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }}
+
+        .filter-checkbox {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            user-select: none;
+        }}
+
+        .filter-checkbox input {{
+            width: 1.25rem;
+            height: 1.25rem;
+            accent-color: var(--accent-primary);
+            cursor: pointer;
+        }}
+
+        .filter-checkbox span {{
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }}
+
+        .mutant-item.hidden {{
+            display: none;
+        }}
+
+        .file-card.all-hidden {{
+            display: none;
+        }}
+
+        /* Responsive */
+        @media (max-width: 768px) {{
+            .score-card {{
+                grid-template-columns: 1fr;
+            }}
+
+            .score-value {{
+                font-size: 3.5rem;
+            }}
+
+            .stats-grid {{
+                grid-template-columns: repeat(2, 1fr);
+            }}
+
+            .filter-controls {{
+                flex-direction: column;
+                align-items: flex-start;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">🧬 Dart Mutant</div>
+            <p class="tagline">AST-Powered Mutation Testing for Dart</p>
+        </header>
+
+        <div class="score-card">
+            <div class="score-display">
+                <div class="score-label">Mutation Score</div>
+                <div class="score-value">{score:.0}%</div>
+                <div class="score-bar">
+                    <div class="score-bar-fill" style="width: {score}%"></div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card stat-total">
+                    <div class="stat-value" style="color: var(--text-primary)">{total}</div>
+                    <div class="stat-label">Total Mutants</div>
+                </div>
+                <div class="stat-card stat-killed">
+                    <div class="stat-value">{killed}</div>
+                    <div class="stat-label">Killed ✅</div>
+                </div>
+                <div class="stat-card stat-survived">
+                    <div class="stat-value">{survived}</div>
+                    <div class="stat-label">Survived 🔴</div>
+                </div>
+                <div class="stat-card stat-timeout">
+                    <div class="stat-value">{timeout}</div>
+                    <div class="stat-label">Timeout ⏱️</div>
+                </div>
+                <div class="stat-card stat-no-coverage">
+                    <div class="stat-value">{no_coverage}</div>
+                    <div class="stat-label">No Coverage 🚫</div>
+                </div>
+                <div class="stat-card stat-error">
+                    <div class="stat-value">{errors}</div>
+                    <div class="stat-label">Errors ⚠️</div>
+                </div>
+            </div>
+        </div>
+
+        <section>
+            <h2 class="section-title">Files ({total_files} files, {file_count} with mutations)</h2>
+            <div class="filter-controls">
+                <span class="filter-label">Filter:</span>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="hideKilled">
+                    <span>Hide killed mutants (show survivors only)</span>
+                </label>
+            </div>
+            {files_html}
+        </section>
+
+        <footer class="footer">
+            Generated by <a href="https://github.com/user/dart_mutant">dart_mutant</a> •
+            Mutation testing helps you write better tests by finding gaps in your test coverage
+        </footer>
+    </div>
+
+    <script>
+        document.querySelectorAll('.file-header').forEach(header => {{
+            header.addEventListener('click', () => {{
+                header.parentElement.classList.toggle('expanded');
+            }});
+        }});
+
+        // Filter toggle for hiding killed mutants
+        const hideKilledCheckbox = document.getElementById('hideKilled');
+        hideKilledCheckbox.addEventListener('change', () => {{
+            const hideKilled = hideKilledCheckbox.checked;
+
+            // Toggle visibility of killed/timeout mutants
+            document.querySelectorAll('.mutant-item').forEach(item => {{
+                const isKilled = item.classList.contains('killed') || item.classList.contains('timeout');
+                if (hideKilled && isKilled) {{
+                    item.classList.add('hidden');
+                }} else {{
+                    item.classList.remove('hidden');
+                }}
+            }});
+
+            // Hide file cards that have no visible mutants
+            document.querySelectorAll('.file-card').forEach(card => {{
+                const visibleMutants = card.querySelectorAll('.mutant-item:not(.hidden)');
+                if (visibleMutants.length === 0) {{
+                    card.classList.add('all-hidden');
+                }} else {{
+                    card.classList.remove('all-hidden');
+                }}
+            }});
+        }});
+    </script>
+</body>
+</html>"#,
+        score = result.mutation_score,
+        score_color = score_color,
+        total = result.total,
+        killed = result.killed,
+        survived = result.survived,
+        timeout = result.timeout,
+        no_coverage = result.no_coverage,
+        errors = result.errors,
+        total_files = total_files,
+        file_count = file_stats.len(),
+        files_html = files_html,
+    )
+}
+
+fn generate_file_section(file_stats: &FileStats) -> String {
+    let score_class = if file_stats.score >= 80.0 {
+        "high"
+    } else if file_stats.score >= 60.0 {
+        "medium"
+    } else {
+        "low"
+    };
+
+    let mutants_html: String = file_stats
+        .mutants
+        .iter()
+        .map(|m| {
+            let status_class = MutantStatusDisplay::css_class(&m.status);
+            let status_emoji = MutantStatusDisplay::emoji(&m.status);
+            format!(
+                r#"<div class="mutant-item {status_class}">
+                    <div class="mutant-status">{status_emoji}</div>
+                    <div class="mutant-details">
+                        <div class="mutant-location">Line {line}:{col}</div>
+                        <div class="mutant-description">{description}</div>
+                        <div class="mutant-code">
+                            <span class="code-original">{original}</span>
+                            →
+                            <span class="code-replacement">{replacement}</span>
+                        </div>
+                    </div>
+                </div>"#,
+                status_class = status_class,
+                status_emoji = status_emoji,
+                line = m.mutation.location.start_line,
+                col = m.mutation.location.start_col,
+                description = html_escape(&m.mutation.description),
+                original = html_escape(&m.mutation.original),
+                replacement = html_escape(&m.mutation.mutated),
+            )
+        })
+        .collect();
+
+    format!(
+        r#"<div class="file-card">
+            <div class="file-header">
+                <span class="file-name">{file}</span>
+                <div class="file-stats">
+                    <span class="file-mutants">{killed}/{total} killed</span>
+                    <span class="file-score {score_class}">{score:.0}%</span>
+                </div>
+            </div>
+            <div class="file-content">
+                {mutants_html}
+            </div>
+        </div>"#,
+        file = html_escape(&file_stats.file),
+        killed = file_stats.killed,
+        total = file_stats.total,
+        score = file_stats.score,
+        score_class = score_class,
+        mutants_html = mutants_html,
+    )
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
+/// Generate a JSON report (Stryker-compatible format)
+pub fn generate_json_report(
+    result: &MutationResult,
+    test_results: &[MutantTestResult],
+    output_path: &Path,
+) -> Result<()> {
+    let report = JsonReport {
+        schema_version: "1".to_string(),
+        thresholds: Thresholds {
+            high: 80,
+            low: 60,
+        },
+        files: generate_json_files(test_results),
+        project_root: std::env::current_dir()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default(),
+        mutation_score: result.mutation_score,
+    };
+
+    let json = serde_json::to_string_pretty(&report)?;
+    std::fs::create_dir_all(output_path.parent().unwrap_or(Path::new(".")))?;
+    std::fs::write(output_path, json).context("Failed to write JSON report")?;
+
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct JsonReport {
+    #[serde(rename = "schemaVersion")]
+    schema_version: String,
+    thresholds: Thresholds,
+    files: HashMap<String, JsonFile>,
+    #[serde(rename = "projectRoot")]
+    project_root: String,
+    #[serde(rename = "mutationScore")]
+    mutation_score: f64,
+}
+
+#[derive(Serialize)]
+struct Thresholds {
+    high: u32,
+    low: u32,
+}
+
+#[derive(Serialize)]
+struct JsonFile {
+    language: String,
+    mutants: Vec<JsonMutant>,
+}
+
+#[derive(Serialize)]
+struct JsonMutant {
+    id: String,
+    #[serde(rename = "mutatorName")]
+    mutator_name: String,
+    replacement: String,
+    status: String,
+    location: JsonLocation,
+    description: String,
+}
+
+#[derive(Serialize)]
+struct JsonLocation {
+    start: JsonPosition,
+    end: JsonPosition,
+}
+
+#[derive(Serialize)]
+struct JsonPosition {
+    line: usize,
+    column: usize,
+}
+
+fn generate_json_files(results: &[MutantTestResult]) -> HashMap<String, JsonFile> {
+    let mut files: HashMap<String, JsonFile> = HashMap::new();
+
+    for result in results {
+        let file = result.mutation.location.file.display().to_string();
+
+        let mutant = JsonMutant {
+            id: result.mutation.id.clone(),
+            mutator_name: result.mutation.operator.name().to_string(),
+            replacement: result.mutation.mutated.clone(),
+            status: match result.status {
+                MutantStatus::Killed => "Killed",
+                MutantStatus::Survived => "Survived",
+                MutantStatus::Timeout => "Timeout",
+                MutantStatus::NoCoverage => "NoCoverage",
+                MutantStatus::Error | MutantStatus::Pending => "CompileError",
+            }
+            .to_string(),
+            location: JsonLocation {
+                start: JsonPosition {
+                    line: result.mutation.location.start_line,
+                    column: result.mutation.location.start_col,
+                },
+                end: JsonPosition {
+                    line: result.mutation.location.end_line,
+                    column: result.mutation.location.end_col,
+                },
+            },
+            description: result.mutation.description.clone(),
+        };
+
+        files
+            .entry(file)
+            .or_insert_with(|| JsonFile {
+                language: "dart".to_string(),
+                mutants: vec![],
+            })
+            .mutants
+            .push(mutant);
+    }
+
+    files
+}
+
+/// Generate an AI-friendly markdown report optimized for LLM consumption
+///
+/// This report is structured to help AI assistants quickly understand:
+/// - What code has surviving mutants (test gaps)
+/// - What changes were made that tests didn't catch
+/// - What kind of tests would catch each mutant
+pub fn generate_ai_report(
+    result: &MutationResult,
+    test_results: &[MutantTestResult],
+    output_path: &Path,
+) -> Result<()> {
+    let mut report = String::new();
+
+    // Header with summary
+    report.push_str("# Mutation Testing Report (AI-Optimized)\n\n");
+    report.push_str("## Summary\n\n");
+    report.push_str(&format!("- **Mutation Score**: {:.1}%\n", result.mutation_score));
+    report.push_str(&format!("- **Total Mutants**: {}\n", result.total));
+    report.push_str(&format!("- **Killed**: {} (tests caught the bug)\n", result.killed));
+    report.push_str(&format!("- **Survived**: {} (tests missed the bug)\n", result.survived));
+    report.push_str(&format!("- **Timeout**: {}\n", result.timeout));
+    report.push_str(&format!("- **Errors**: {}\n\n", result.errors));
+
+    // Group survived mutants by file
+    let mut survived_by_file: HashMap<String, Vec<&MutantTestResult>> = HashMap::new();
+    for r in test_results {
+        if matches!(r.status, MutantStatus::Survived) {
+            let file = r.mutation.location.file.display().to_string();
+            survived_by_file.entry(file).or_default().push(r);
+        }
+    }
+
+    if survived_by_file.is_empty() {
+        report.push_str("## Result\n\n");
+        report.push_str("All mutants were killed. Test suite has excellent coverage.\n");
+    } else {
+        report.push_str("## Surviving Mutants (Action Required)\n\n");
+        report.push_str("These mutations were NOT detected by tests. Each represents a potential bug your tests would miss.\n\n");
+
+        // Sort files by number of survivors (worst first)
+        let mut files: Vec<_> = survived_by_file.iter().collect();
+        files.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
+
+        for (file, mutants) in files {
+            report.push_str(&format!("### {}\n\n", file));
+            report.push_str(&format!("{} surviving mutant(s)\n\n", mutants.len()));
+
+            for mutant in mutants {
+                let m = &mutant.mutation;
+                report.push_str(&format!("#### Line {}:{}\n\n", m.location.start_line, m.location.start_col));
+                report.push_str(&format!("**Mutation**: `{}` → `{}`\n\n", m.original, m.mutated));
+                report.push_str(&format!("**Operator**: {}\n\n", m.operator.name()));
+
+                // Generate test hint based on operator
+                let test_hint = generate_test_hint(&m.operator, &m.original, &m.mutated);
+                report.push_str(&format!("**Suggested Test**: {}\n\n", test_hint));
+
+                report.push_str("---\n\n");
+            }
+        }
+    }
+
+    // Add section for easy copy-paste file:line references
+    if !survived_by_file.is_empty() {
+        report.push_str("## Quick Reference (file:line)\n\n");
+        report.push_str("```\n");
+        for (file, mutants) in &survived_by_file {
+            for mutant in mutants {
+                report.push_str(&format!(
+                    "{}:{}  # {} → {}\n",
+                    file,
+                    mutant.mutation.location.start_line,
+                    mutant.mutation.original,
+                    mutant.mutation.mutated
+                ));
+            }
+        }
+        report.push_str("```\n");
+    }
+
+    std::fs::create_dir_all(output_path.parent().unwrap_or(Path::new(".")))?;
+    std::fs::write(output_path, report).context("Failed to write AI report")?;
+
+    Ok(())
+}
+
+/// Generate a test hint based on the mutation operator
+fn generate_test_hint(
+    operator: &crate::mutation::MutationOperator,
+    original: &str,
+    mutated: &str,
+) -> String {
+    use crate::mutation::MutationOperator::*;
+
+    match operator {
+        // Arithmetic
+        Arithmetic | ArithmeticAddToSub | ArithmeticSubToAdd => {
+            format!(
+                "Add a test that verifies the arithmetic result. If `{}` changed to `{}`, \
+                test with values where addition vs subtraction gives different results (e.g., non-zero operands).",
+                original, mutated
+            )
+        }
+        ArithmeticMulToDiv | ArithmeticDivToMul => {
+            format!(
+                "Test with values where `{}` vs `{}` produce different results. \
+                Avoid values like 1 or 0 that may give same result for both operations.",
+                original, mutated
+            )
+        }
+        ArithmeticModToMul => {
+            "Test modulo operation with values that produce a remainder (not evenly divisible).".to_string()
+        }
+
+        // Comparison
+        Comparison | ComparisonLtToLte | ComparisonLteToLt | ComparisonGtToGte | ComparisonGteToGt => {
+            format!(
+                "Add a boundary test. Test with exact boundary value where `{}` vs `{}` differ. \
+                If testing `<` vs `<=`, use the exact boundary value.",
+                original, mutated
+            )
+        }
+        ComparisonLtToGt | ComparisonLteToGte | ComparisonGtToLt | ComparisonGteToLte => {
+            "Add tests for values on both sides of the comparison. \
+            Test with value less than, equal to, and greater than the boundary.".to_string()
+        }
+        ComparisonEqToNeq | ComparisonNeqToEq => {
+            format!(
+                "Test both equality and inequality. If `{}` → `{}`, ensure tests verify \
+                both the equal case AND the not-equal case.",
+                original, mutated
+            )
+        }
+
+        // Logical
+        Logical | LogicalAndToOr | LogicalOrToAnd => {
+            "Test all combinations of boolean conditions. For `&&` vs `||`, test cases where \
+            one condition is true and the other is false.".to_string()
+        }
+        LogicalNotRemoval => {
+            "Add tests for both true and false outcomes of the negated expression. \
+            Ensure the test fails when negation is removed.".to_string()
+        }
+
+        // Boolean
+        Boolean | BooleanTrueToFalse | BooleanFalseToTrue => {
+            format!(
+                "The boolean `{}` was changed to `{}`. Add a test that \
+                explicitly checks this boolean's effect on behavior.",
+                original, mutated
+            )
+        }
+
+        // Unary
+        Unary | UnaryIncrementToDecrement | UnaryDecrementToIncrement => {
+            "Test that the value changes in the expected direction. \
+            Verify increment increases and decrement decreases.".to_string()
+        }
+        UnaryMinusRemoval | UnaryPlusMinus => {
+            "Test with positive and negative values to ensure sign is handled correctly.".to_string()
+        }
+        UnaryPreToPost | UnaryPostToPre => {
+            "Test that uses the return value of the increment/decrement expression. \
+            Pre vs post increment differ in what value is returned.".to_string()
+        }
+
+        // Null Safety
+        NullSafety | NullCoalescingRemoval => {
+            "Test with null input to verify the fallback value is used. \
+            The `??` operator's right side should be tested.".to_string()
+        }
+        NullAwareAccessRemoval => {
+            "Test with null object to ensure null-safe access (`?.`) prevents crash. \
+            Verify behavior when the object is null vs non-null.".to_string()
+        }
+        NullAssertionRemoval => {
+            "Test with non-null values to ensure assertion (`!`) behavior is correct.".to_string()
+        }
+        NullCheckToTrue | NullCheckToFalse => {
+            "Test with both null and non-null values to verify null check works correctly.".to_string()
+        }
+
+        // String
+        String | StringEmptyToNonEmpty | StringNonEmptyToEmpty => {
+            "Test with both empty and non-empty strings. Verify behavior differs appropriately.".to_string()
+        }
+
+        // Control Flow
+        Conditional | ControlFlowIfConditionTrue | ControlFlowIfConditionFalse => {
+            "Add tests that exercise both branches of the if statement. \
+            Ensure tests verify behavior when condition is true AND when false.".to_string()
+        }
+        ControlFlowRemoveElse => {
+            "Test the else branch explicitly. Verify behavior when the if condition is false.".to_string()
+        }
+        ControlFlowBreakRemoval | ControlFlowContinueRemoval => {
+            "Test loop termination/continuation. Verify the loop stops or continues at the right time.".to_string()
+        }
+        ControlFlowReturnRemoval => {
+            "Test early return conditions. Verify function returns expected value at the return point.".to_string()
+        }
+
+        // Collection
+        Collection | CollectionEmptyCheck | CollectionNotEmptyCheck => {
+            "Test with empty collection AND non-empty collection. \
+            Verify isEmpty/isNotEmpty checks affect behavior.".to_string()
+        }
+        CollectionFirstToLast | CollectionLastToFirst => {
+            "Test with collection having different first and last elements. \
+            Verify correct element is accessed.".to_string()
+        }
+        CollectionAddRemoval => {
+            "Verify the collection modification occurs. Test that add() actually adds the element.".to_string()
+        }
+
+        // Other
+        _ => format!(
+            "Add a test that verifies the behavior changes when `{}` is replaced with `{}`.",
+            original, mutated
+        ),
+    }
+}
