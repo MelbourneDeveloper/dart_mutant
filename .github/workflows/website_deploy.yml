@@ -38,8 +38,6 @@ jobs:
 
       - name: Build site
         run: npm run build
-        env:
-          ELEVENTY_PATH_PREFIX: /dart_mutant/
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
