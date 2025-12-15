@@ -134,7 +134,11 @@ pub fn generate_html_report(
         })
         .collect();
 
-    file_stats.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+    file_stats.sort_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let html = generate_html_content(result, &file_stats, dart_files.len());
 
@@ -153,7 +157,11 @@ struct FileStats {
     mutants: Vec<MutantTestResult>,
 }
 
-fn generate_html_content(result: &MutationResult, file_stats: &[FileStats], total_files: usize) -> String {
+fn generate_html_content(
+    result: &MutationResult,
+    file_stats: &[FileStats],
+    total_files: usize,
+) -> String {
     let score_class = if result.mutation_score >= 80.0 {
         "high"
     } else if result.mutation_score >= 60.0 {
@@ -375,10 +383,7 @@ pub fn generate_json_report(
 ) -> Result<()> {
     let report = JsonReport {
         schema_version: "1".to_string(),
-        thresholds: Thresholds {
-            high: 80,
-            low: 60,
-        },
+        thresholds: Thresholds { high: 80, low: 60 },
         files: generate_json_files(test_results),
         project_root: std::env::current_dir()
             .map(|p| p.display().to_string())
@@ -500,10 +505,19 @@ pub fn generate_ai_report(
     // Header with summary
     report.push_str("# Mutation Testing Report (AI-Optimized)\n\n");
     report.push_str("## Summary\n\n");
-    report.push_str(&format!("- **Mutation Score**: {:.1}%\n", result.mutation_score));
+    report.push_str(&format!(
+        "- **Mutation Score**: {:.1}%\n",
+        result.mutation_score
+    ));
     report.push_str(&format!("- **Total Mutants**: {}\n", result.total));
-    report.push_str(&format!("- **Killed**: {} (tests caught the bug)\n", result.killed));
-    report.push_str(&format!("- **Survived**: {} (tests missed the bug)\n", result.survived));
+    report.push_str(&format!(
+        "- **Killed**: {} (tests caught the bug)\n",
+        result.killed
+    ));
+    report.push_str(&format!(
+        "- **Survived**: {} (tests missed the bug)\n",
+        result.survived
+    ));
     report.push_str(&format!("- **Timeout**: {}\n", result.timeout));
     report.push_str(&format!("- **Errors**: {}\n\n", result.errors));
 
@@ -533,8 +547,14 @@ pub fn generate_ai_report(
 
             for mutant in mutants {
                 let m = &mutant.mutation;
-                report.push_str(&format!("#### Line {}:{}\n\n", m.location.start_line, m.location.start_col));
-                report.push_str(&format!("**Mutation**: `{}` → `{}`\n\n", m.original, m.mutated));
+                report.push_str(&format!(
+                    "#### Line {}:{}\n\n",
+                    m.location.start_line, m.location.start_col
+                ));
+                report.push_str(&format!(
+                    "**Mutation**: `{}` → `{}`\n\n",
+                    m.original, m.mutated
+                ));
                 report.push_str(&format!("**Operator**: {}\n\n", m.operator.name()));
 
                 // Generate test hint based on operator

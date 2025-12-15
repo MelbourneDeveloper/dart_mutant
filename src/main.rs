@@ -113,10 +113,7 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
                 all_mutations.extend(ai_mutations);
             }
             Err(e) => {
-                ai_pb.finish_with_message(format!(
-                    "{} AI suggestions failed: {e}",
-                    "✗".red()
-                ));
+                ai_pb.finish_with_message(format!("{} AI suggestions failed: {e}", "✗".red()));
             }
         }
     }
@@ -139,10 +136,7 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
 
     // Step 3: Run mutation tests (or skip in dry-run mode)
     let results = if args.dry_run {
-        println!(
-            "\n{} Dry run mode - skipping test execution",
-            "ℹ".cyan()
-        );
+        println!("\n{} Dry run mode - skipping test execution", "ℹ".cyan());
         println!("  {} mutations would be tested\n", mutations_to_test.len());
 
         // Print first few mutations as preview
@@ -150,7 +144,11 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
             println!(
                 "  {}. [{}:{}] {} → {}",
                 i + 1,
-                m.location.file.file_name().unwrap_or_default().to_string_lossy(),
+                m.location
+                    .file
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy(),
                 m.location.start_line,
                 m.original,
                 m.mutated
@@ -295,11 +293,7 @@ fn create_score_bar(score: f64) -> String {
     let filled = ((score / 100.0) * width as f64) as usize;
     let empty = width - filled;
 
-    let bar = format!(
-        "{}{}",
-        "█".repeat(filled),
-        "░".repeat(empty)
-    );
+    let bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
 
     if score >= 80.0 {
         bar.green().to_string()

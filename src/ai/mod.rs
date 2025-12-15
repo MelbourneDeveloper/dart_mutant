@@ -48,11 +48,7 @@ impl AiMutationSuggester {
     }
 
     /// Suggest high-value mutations for a Dart file
-    pub async fn suggest_mutations(
-        &self,
-        file_path: &Path,
-        source: &str,
-    ) -> Result<Vec<Mutation>> {
+    pub async fn suggest_mutations(&self, file_path: &Path, source: &str) -> Result<Vec<Mutation>> {
         let suggestions = match self.provider {
             AiProvider::Anthropic => self.suggest_with_anthropic(source).await?,
             AiProvider::OpenAI => self.suggest_with_openai(source).await?,

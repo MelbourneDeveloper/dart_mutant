@@ -56,11 +56,16 @@ fn group_by_file(results: &[MockMutantResult]) -> HashMap<String, Vec<&MockMutan
     grouped
 }
 
-
 mod mutation_score_calculation {
     use super::*;
 
-    fn create_results(killed: usize, survived: usize, timeout: usize, error: usize, no_coverage: usize) -> Vec<MockMutantResult> {
+    fn create_results(
+        killed: usize,
+        survived: usize,
+        timeout: usize,
+        error: usize,
+        no_coverage: usize,
+    ) -> Vec<MockMutantResult> {
         let mut results = Vec::new();
 
         for _ in 0..killed {
@@ -105,21 +110,30 @@ mod mutation_score_calculation {
     fn perfect_score_when_all_killed() {
         let results = create_results(10, 0, 0, 0, 0);
         let score = calculate_mutation_score(&results);
-        assert!((score - 100.0).abs() < 0.001, "Score should be 100% when all killed");
+        assert!(
+            (score - 100.0).abs() < 0.001,
+            "Score should be 100% when all killed"
+        );
     }
 
     #[test]
     fn zero_score_when_all_survived() {
         let results = create_results(0, 10, 0, 0, 0);
         let score = calculate_mutation_score(&results);
-        assert!((score - 0.0).abs() < 0.001, "Score should be 0% when all survived");
+        assert!(
+            (score - 0.0).abs() < 0.001,
+            "Score should be 0% when all survived"
+        );
     }
 
     #[test]
     fn fifty_percent_when_half_killed() {
         let results = create_results(5, 5, 0, 0, 0);
         let score = calculate_mutation_score(&results);
-        assert!((score - 50.0).abs() < 0.001, "Score should be 50% when half killed");
+        assert!(
+            (score - 50.0).abs() < 0.001,
+            "Score should be 50% when half killed"
+        );
     }
 
     #[test]
@@ -184,7 +198,6 @@ mod mutation_score_calculation {
         }
     }
 }
-
 
 mod result_grouping {
     use super::*;
@@ -280,7 +293,6 @@ mod result_grouping {
     }
 }
 
-
 mod html_report_structure {
 
     fn generate_mock_html(score: f64, killed: usize, survived: usize) -> String {
@@ -323,7 +335,10 @@ mod html_report_structure {
     fn html_is_valid_structure() {
         let html = generate_mock_html(50.0, 5, 5);
 
-        assert!(html.starts_with("<!DOCTYPE html>"), "Should start with DOCTYPE");
+        assert!(
+            html.starts_with("<!DOCTYPE html>"),
+            "Should start with DOCTYPE"
+        );
         assert!(html.contains("<html>"), "Should have html tag");
         assert!(html.contains("<head>"), "Should have head tag");
         assert!(html.contains("<body>"), "Should have body tag");
@@ -354,7 +369,6 @@ mod html_report_structure {
         assert_eq!(get_color(0.0), "red");
     }
 }
-
 
 mod json_report_structure {
     use super::*;
@@ -390,13 +404,11 @@ mod json_report_structure {
             "lib/calculator.dart".to_string(),
             MockJsonFile {
                 language: "dart".to_string(),
-                mutants: vec![
-                    MockJsonMutant {
-                        id: "abc123".to_string(),
-                        mutator_name: "ArithmeticOperator".to_string(),
-                        status: "Killed".to_string(),
-                    },
-                ],
+                mutants: vec![MockJsonMutant {
+                    id: "abc123".to_string(),
+                    mutator_name: "ArithmeticOperator".to_string(),
+                    status: "Killed".to_string(),
+                }],
             },
         );
 
@@ -450,20 +462,12 @@ mod json_report_structure {
         ];
 
         for status in valid_statuses {
-            let json = format!(
-                r#"{{"id":"x","mutatorName":"Test","status":"{}"}}"#,
-                status
-            );
+            let json = format!(r#"{{"id":"x","mutatorName":"Test","status":"{}"}}"#, status);
             let parsed: Result<MockJsonMutant, _> = serde_json::from_str(&json);
-            assert!(
-                parsed.is_ok(),
-                "Status '{}' should be valid",
-                status
-            );
+            assert!(parsed.is_ok(), "Status '{}' should be valid", status);
         }
     }
 }
-
 
 mod report_output {
     use std::fs;
@@ -500,7 +504,6 @@ mod report_output {
     }
 }
 
-
 mod ai_report_structure {
     #[allow(unused_imports)]
     use super::*;
@@ -522,8 +525,14 @@ mod ai_report_structure {
         report.push_str("## Summary\n\n");
         report.push_str(&format!("- **Mutation Score**: {:.1}%\n", score));
         report.push_str(&format!("- **Total Mutants**: {}\n", total));
-        report.push_str(&format!("- **Killed**: {} (tests caught the bug)\n", killed));
-        report.push_str(&format!("- **Survived**: {} (tests missed the bug)\n", survived));
+        report.push_str(&format!(
+            "- **Killed**: {} (tests caught the bug)\n",
+            killed
+        ));
+        report.push_str(&format!(
+            "- **Survived**: {} (tests missed the bug)\n",
+            survived
+        ));
         report.push_str(&format!("- **Timeout**: {}\n", timeout));
         report.push_str(&format!("- **Errors**: {}\n\n", errors));
 
@@ -535,7 +544,8 @@ mod ai_report_structure {
             report.push_str("These mutations were NOT detected by tests. Each represents a potential bug your tests would miss.\n\n");
 
             // Group by file
-            let mut by_file: std::collections::HashMap<&str, Vec<_>> = std::collections::HashMap::new();
+            let mut by_file: std::collections::HashMap<&str, Vec<_>> =
+                std::collections::HashMap::new();
             for s in survivors {
                 by_file.entry(&s.0).or_default().push(s);
             }
@@ -561,7 +571,10 @@ mod ai_report_structure {
             report.push_str("## Quick Reference (file:line)\n\n");
             report.push_str("```\n");
             for (file, line, _, original, mutated, _) in survivors {
-                report.push_str(&format!("{}:{}  # {} → {}\n", file, line, original, mutated));
+                report.push_str(&format!(
+                    "{}:{}  # {} → {}\n",
+                    file, line, original, mutated
+                ));
             }
             report.push_str("```\n");
         }
@@ -594,9 +607,14 @@ mod ai_report_structure {
 
     #[test]
     fn ai_report_shows_surviving_mutants_section() {
-        let survivors = vec![
-            ("lib/calc.dart".to_string(), 10, 5, "+".to_string(), "-".to_string(), "Arithmetic".to_string()),
-        ];
+        let survivors = vec![(
+            "lib/calc.dart".to_string(),
+            10,
+            5,
+            "+".to_string(),
+            "-".to_string(),
+            "Arithmetic".to_string(),
+        )];
         let report = generate_mock_ai_report(50.0, 5, 5, 0, 0, &survivors);
         assert!(report.contains("## Surviving Mutants (Action Required)"));
         assert!(report.contains("These mutations were NOT detected"));
@@ -605,9 +623,30 @@ mod ai_report_structure {
     #[test]
     fn ai_report_groups_survivors_by_file() {
         let survivors = vec![
-            ("lib/calc.dart".to_string(), 10, 5, "+".to_string(), "-".to_string(), "Arithmetic".to_string()),
-            ("lib/calc.dart".to_string(), 20, 3, "*".to_string(), "/".to_string(), "Arithmetic".to_string()),
-            ("lib/utils.dart".to_string(), 5, 1, "true".to_string(), "false".to_string(), "Boolean".to_string()),
+            (
+                "lib/calc.dart".to_string(),
+                10,
+                5,
+                "+".to_string(),
+                "-".to_string(),
+                "Arithmetic".to_string(),
+            ),
+            (
+                "lib/calc.dart".to_string(),
+                20,
+                3,
+                "*".to_string(),
+                "/".to_string(),
+                "Arithmetic".to_string(),
+            ),
+            (
+                "lib/utils.dart".to_string(),
+                5,
+                1,
+                "true".to_string(),
+                "false".to_string(),
+                "Boolean".to_string(),
+            ),
         ];
         let report = generate_mock_ai_report(50.0, 5, 3, 0, 0, &survivors);
 
@@ -619,9 +658,14 @@ mod ai_report_structure {
 
     #[test]
     fn ai_report_shows_mutation_details() {
-        let survivors = vec![
-            ("lib/calc.dart".to_string(), 42, 15, ">=".to_string(), ">".to_string(), "Comparison".to_string()),
-        ];
+        let survivors = vec![(
+            "lib/calc.dart".to_string(),
+            42,
+            15,
+            ">=".to_string(),
+            ">".to_string(),
+            "Comparison".to_string(),
+        )];
         let report = generate_mock_ai_report(50.0, 5, 1, 0, 0, &survivors);
 
         assert!(report.contains("#### Line 42:15"));
@@ -633,8 +677,22 @@ mod ai_report_structure {
     #[test]
     fn ai_report_has_quick_reference_section() {
         let survivors = vec![
-            ("lib/calc.dart".to_string(), 10, 5, "+".to_string(), "-".to_string(), "Arithmetic".to_string()),
-            ("lib/utils.dart".to_string(), 20, 3, "&&".to_string(), "||".to_string(), "Logical".to_string()),
+            (
+                "lib/calc.dart".to_string(),
+                10,
+                5,
+                "+".to_string(),
+                "-".to_string(),
+                "Arithmetic".to_string(),
+            ),
+            (
+                "lib/utils.dart".to_string(),
+                20,
+                3,
+                "&&".to_string(),
+                "||".to_string(),
+                "Logical".to_string(),
+            ),
         ];
         let report = generate_mock_ai_report(50.0, 5, 2, 0, 0, &survivors);
 
@@ -647,17 +705,48 @@ mod ai_report_structure {
     #[test]
     fn ai_report_sorts_files_by_survivor_count() {
         let survivors = vec![
-            ("lib/few.dart".to_string(), 1, 1, "+".to_string(), "-".to_string(), "Arithmetic".to_string()),
-            ("lib/many.dart".to_string(), 1, 1, "+".to_string(), "-".to_string(), "Arithmetic".to_string()),
-            ("lib/many.dart".to_string(), 2, 1, "-".to_string(), "+".to_string(), "Arithmetic".to_string()),
-            ("lib/many.dart".to_string(), 3, 1, "*".to_string(), "/".to_string(), "Arithmetic".to_string()),
+            (
+                "lib/few.dart".to_string(),
+                1,
+                1,
+                "+".to_string(),
+                "-".to_string(),
+                "Arithmetic".to_string(),
+            ),
+            (
+                "lib/many.dart".to_string(),
+                1,
+                1,
+                "+".to_string(),
+                "-".to_string(),
+                "Arithmetic".to_string(),
+            ),
+            (
+                "lib/many.dart".to_string(),
+                2,
+                1,
+                "-".to_string(),
+                "+".to_string(),
+                "Arithmetic".to_string(),
+            ),
+            (
+                "lib/many.dart".to_string(),
+                3,
+                1,
+                "*".to_string(),
+                "/".to_string(),
+                "Arithmetic".to_string(),
+            ),
         ];
         let report = generate_mock_ai_report(50.0, 5, 4, 0, 0, &survivors);
 
         // lib/many.dart (3 survivors) should appear before lib/few.dart (1 survivor)
         let many_pos = report.find("### lib/many.dart").unwrap();
         let few_pos = report.find("### lib/few.dart").unwrap();
-        assert!(many_pos < few_pos, "Files with more survivors should appear first");
+        assert!(
+            many_pos < few_pos,
+            "Files with more survivors should appear first"
+        );
     }
 
     #[test]
@@ -670,8 +759,22 @@ mod ai_report_structure {
     #[test]
     fn ai_report_handles_special_characters_in_mutations() {
         let survivors = vec![
-            ("lib/test.dart".to_string(), 1, 1, "<".to_string(), "<=".to_string(), "Comparison".to_string()),
-            ("lib/test.dart".to_string(), 2, 1, "&&".to_string(), "||".to_string(), "Logical".to_string()),
+            (
+                "lib/test.dart".to_string(),
+                1,
+                1,
+                "<".to_string(),
+                "<=".to_string(),
+                "Comparison".to_string(),
+            ),
+            (
+                "lib/test.dart".to_string(),
+                2,
+                1,
+                "&&".to_string(),
+                "||".to_string(),
+                "Logical".to_string(),
+            ),
         ];
         let report = generate_mock_ai_report(50.0, 2, 2, 0, 0, &survivors);
 
@@ -682,7 +785,6 @@ mod ai_report_structure {
         assert!(report.contains("`||`"));
     }
 }
-
 
 mod test_hint_generation {
     /// Mock test hint generator that mirrors the real implementation

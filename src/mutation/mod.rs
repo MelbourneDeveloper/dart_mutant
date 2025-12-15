@@ -82,7 +82,13 @@ impl Mutation {
     ) -> Self {
         let id = format!(
             "{:x}",
-            md5::compute(format!("{}:{}:{}:{}", file_path.display(), line, original, replacement))
+            md5::compute(format!(
+                "{}:{}:{}:{}",
+                file_path.display(),
+                line,
+                original,
+                replacement
+            ))
         );
         let description = format!("{}: {} → {}", operator.name(), original, replacement);
 
@@ -195,22 +201,22 @@ pub enum MutationOperator {
     AssignmentDivToMul,
 
     // Dart Null Safety
-    NullCoalescingRemoval,      // ?? → left operand
-    NullAwareAccessRemoval,     // ?. → .
-    NullAssertionRemoval,       // x! → x
-    NullCheckToTrue,            // x != null → true
-    NullCheckToFalse,           // x == null → false
+    NullCoalescingRemoval,  // ?? → left operand
+    NullAwareAccessRemoval, // ?. → .
+    NullAssertionRemoval,   // x! → x
+    NullCheckToTrue,        // x != null → true
+    NullCheckToFalse,       // x == null → false
 
     // String mutations
     StringEmptyToNonEmpty,
     StringNonEmptyToEmpty,
 
     // Collection mutations
-    CollectionEmptyCheck,       // isEmpty → isNotEmpty
-    CollectionNotEmptyCheck,    // isNotEmpty → isEmpty
-    CollectionAddRemoval,       // .add() → nothing
-    CollectionFirstToLast,      // .first → .last
-    CollectionLastToFirst,      // .last → .first
+    CollectionEmptyCheck,    // isEmpty → isNotEmpty
+    CollectionNotEmptyCheck, // isNotEmpty → isEmpty
+    CollectionAddRemoval,    // .add() → nothing
+    CollectionFirstToLast,   // .first → .last
+    CollectionLastToFirst,   // .last → .first
 
     // Control Flow mutations
     ControlFlowIfConditionTrue,

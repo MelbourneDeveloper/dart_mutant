@@ -19,7 +19,6 @@ fn lib_path() -> PathBuf {
     fixtures_path().join("lib")
 }
 
-
 mod mutation_generation {
     use super::*;
 
@@ -195,7 +194,6 @@ mod mutation_generation {
     }
 }
 
-
 mod mutation_application {
     #[test]
     fn applies_arithmetic_mutation_correctly() {
@@ -265,10 +263,7 @@ bool isInRange(int n, int min, int max) {
             mutated.contains("||"),
             "Mutated code should have '||' instead of '&&'"
         );
-        assert!(
-            !mutated.contains("&&"),
-            "Mutated code should NOT have '&&'"
-        );
+        assert!(!mutated.contains("&&"), "Mutated code should NOT have '&&'");
     }
 
     #[test]
@@ -285,10 +280,7 @@ String getValueOrDefault(String? value) {
 
         // Note: this would cause a null safety error, but the mutation
         // is syntactically valid - the test runner will catch it
-        assert!(
-            !mutated.contains("??"),
-            "Mutated code should not have ??"
-        );
+        assert!(!mutated.contains("??"), "Mutated code should not have ??");
     }
 
     #[test]
@@ -424,7 +416,6 @@ int increment(int n) {
     }
 }
 
-
 mod mutation_coverage {
     use super::*;
 
@@ -522,7 +513,6 @@ mod mutation_coverage {
     }
 }
 
-
 /// Tests for AI suggestion parsing and mutation conversion
 mod ai_suggestion_parsing {
     /// Test parsing Anthropic response format
@@ -578,10 +568,7 @@ mod ai_suggestion_parsing {
             "response": r#"[{"line": 10, "column": 5, "original": ">=", "mutated": ">", "reason": "Boundary check", "confidence": 0.85}]"#
         });
 
-        let content = response
-            .get("response")
-            .and_then(|r| r.as_str())
-            .unwrap();
+        let content = response.get("response").and_then(|r| r.as_str()).unwrap();
 
         assert!(content.contains("line"));
         assert!(content.contains(">="));
@@ -684,7 +671,6 @@ That's all!"#;
     }
 }
 
-
 /// Tests for mutation sampling functionality
 mod mutation_sampling {
     #[test]
@@ -745,7 +731,6 @@ mod mutation_sampling {
     }
 }
 
-
 /// Tests for mutation operator names
 mod mutation_operator_names {
     #[test]
@@ -781,11 +766,7 @@ mod mutation_operator_names {
 
     #[test]
     fn logical_operators_have_descriptive_names() {
-        let operator_names = [
-            "LogicalAndToOr",
-            "LogicalOrToAnd",
-            "LogicalNotRemoval",
-        ];
+        let operator_names = ["LogicalAndToOr", "LogicalOrToAnd", "LogicalNotRemoval"];
 
         for name in &operator_names {
             assert!(name.starts_with("Logical"));
@@ -831,7 +812,6 @@ mod mutation_operator_names {
         }
     }
 }
-
 
 /// Tests for Mutation::apply functionality
 mod mutation_apply {

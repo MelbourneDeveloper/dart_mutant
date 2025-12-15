@@ -53,7 +53,10 @@ fn copy_fixtures_to_temp() -> Option<tempfile::TempDir> {
     let dest = temp_dir.path().join("simple_dart_project");
 
     // Copy recursively using walkdir
-    for entry in walkdir::WalkDir::new(&source).into_iter().filter_map(|e| e.ok()) {
+    for entry in walkdir::WalkDir::new(&source)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         let rel_path = entry.path().strip_prefix(&source).ok()?;
         let target = dest.join(rel_path);
 
@@ -69,7 +72,6 @@ fn copy_fixtures_to_temp() -> Option<tempfile::TempDir> {
 
     Some(temp_dir)
 }
-
 
 mod cli_arguments {
     use super::*;
@@ -141,8 +143,8 @@ mod cli_arguments {
         let stderr = String::from_utf8_lossy(&output.stderr);
         // Either it runs or reports path not found - both are valid
         assert!(
-            !stderr.contains("error: unexpected argument") &&
-            !stderr.contains("error: Found argument"),
+            !stderr.contains("error: unexpected argument")
+                && !stderr.contains("error: Found argument"),
             "--path should be a valid argument"
         );
     }
@@ -193,7 +195,13 @@ mod cli_arguments {
         }
 
         let output = Command::new(binary_path())
-            .args(["--output", "/tmp/reports", "--dry-run", "--path", "/nonexistent"])
+            .args([
+                "--output",
+                "/tmp/reports",
+                "--dry-run",
+                "--path",
+                "/nonexistent",
+            ])
             .output()
             .expect("Failed to execute command");
 
@@ -213,10 +221,13 @@ mod cli_arguments {
 
         let output = Command::new(binary_path())
             .args([
-                "--exclude", "**/*.g.dart",
-                "--exclude", "**/*.freezed.dart",
+                "--exclude",
+                "**/*.g.dart",
+                "--exclude",
+                "**/*.freezed.dart",
                 "--dry-run",
-                "--path", "/nonexistent"
+                "--path",
+                "/nonexistent",
             ])
             .output()
             .expect("Failed to execute command");
@@ -228,7 +239,6 @@ mod cli_arguments {
         );
     }
 }
-
 
 mod file_discovery_e2e {
     use super::*;
@@ -267,12 +277,10 @@ mod file_discovery_e2e {
             .expect("Should load Dart grammar");
 
         for file in dart_files {
-            let source = std::fs::read_to_string(&file)
-                .unwrap_or_else(|_| panic!("Should read {:?}", file));
+            let source =
+                std::fs::read_to_string(&file).unwrap_or_else(|_| panic!("Should read {:?}", file));
 
-            let tree = parser
-                .parse(&source, None)
-                .expect("Should parse");
+            let tree = parser.parse(&source, None).expect("Should parse");
 
             assert!(
                 !tree.root_node().has_error(),
@@ -282,7 +290,6 @@ mod file_discovery_e2e {
         }
     }
 }
-
 
 mod mutation_generation_e2e {
     use super::*;
@@ -354,12 +361,27 @@ mod mutation_generation_e2e {
         assert!(source.contains(" + "), "Should have addition");
         assert!(source.contains(" - "), "Should have subtraction");
         assert!(source.contains(" * "), "Should have multiplication");
-        assert!(source.contains("~/") || source.contains(" / "), "Should have division");
-        assert!(source.contains(" > ") || source.contains(" >= "), "Should have greater than");
-        assert!(source.contains(" < ") || source.contains(" <= "), "Should have less than");
+        assert!(
+            source.contains("~/") || source.contains(" / "),
+            "Should have division"
+        );
+        assert!(
+            source.contains(" > ") || source.contains(" >= "),
+            "Should have greater than"
+        );
+        assert!(
+            source.contains(" < ") || source.contains(" <= "),
+            "Should have less than"
+        );
         assert!(source.contains(" == "), "Should have equality");
-        assert!(source.contains("if (") || source.contains("if("), "Should have if statement");
-        assert!(source.contains("++") || source.contains("--"), "Should have increment/decrement");
+        assert!(
+            source.contains("if (") || source.contains("if("),
+            "Should have if statement"
+        );
+        assert!(
+            source.contains("++") || source.contains("--"),
+            "Should have increment/decrement"
+        );
     }
 
     #[test]
@@ -377,7 +399,6 @@ mod mutation_generation_e2e {
     }
 }
 
-
 mod full_pipeline_e2e {
     use super::*;
 
@@ -389,10 +410,7 @@ mod full_pipeline_e2e {
         }
 
         let output = Command::new(binary_path())
-            .args([
-                "--path", fixtures_path().to_str().unwrap(),
-                "--dry-run",
-            ])
+            .args(["--path", fixtures_path().to_str().unwrap(), "--dry-run"])
             .output()
             .expect("Failed to execute command");
 
@@ -439,12 +457,16 @@ mod full_pipeline_e2e {
 
         let output = Command::new(binary_path())
             .args([
-                "--path", project_path.to_str().unwrap(),
-                "--output", temp_output.to_str().unwrap(),
+                "--path",
+                project_path.to_str().unwrap(),
+                "--output",
+                temp_output.to_str().unwrap(),
                 "--html",
                 "--json",
-                "--sample", "5", // Only test 5 mutations for speed
-                "--timeout", "10",
+                "--sample",
+                "5", // Only test 5 mutations for speed
+                "--timeout",
+                "10",
             ])
             .output()
             .expect("Failed to execute command");
@@ -509,11 +531,15 @@ mod full_pipeline_e2e {
 
         let output = Command::new(binary_path())
             .args([
-                "--path", project_path.to_str().unwrap(),
-                "--output", temp_output.to_str().unwrap(),
+                "--path",
+                project_path.to_str().unwrap(),
+                "--output",
+                temp_output.to_str().unwrap(),
                 "--ai-report",
-                "--sample", "3", // Only test 3 mutations for speed
-                "--timeout", "10",
+                "--sample",
+                "3", // Only test 3 mutations for speed
+                "--timeout",
+                "10",
             ])
             .output()
             .expect("Failed to execute command");
@@ -570,7 +596,6 @@ mod full_pipeline_e2e {
     }
 }
 
-
 mod threshold_behavior {
     #[test]
     fn threshold_zero_always_passes() {
@@ -583,8 +608,7 @@ mod threshold_behavior {
             assert!(
                 passes,
                 "Score {} should pass threshold {}",
-                score,
-                threshold
+                score, threshold
             );
         }
     }
@@ -615,7 +639,6 @@ mod threshold_behavior {
         assert_eq!(determine_exit(0.0, 0.0), 0);
     }
 }
-
 
 mod output_format_e2e {
     #[test]

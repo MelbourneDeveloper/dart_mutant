@@ -132,7 +132,6 @@ pub struct Args {
     pub base_ref: String,
 
     // ===== AI-Powered Mutations =====
-
     /// Enable AI-powered smart mutation placement
     #[arg(long, value_enum, default_value = "none")]
     pub ai: AiProvider,
@@ -154,7 +153,6 @@ pub struct Args {
     pub ai_max_per_file: usize,
 
     // ===== Report Options =====
-
     /// Generate HTML report
     #[arg(long, default_value_t = true)]
     pub html: bool,

@@ -101,8 +101,7 @@ pub async fn run_mutation_tests(
                 let file_lock = get_file_lock(&file_locks, &mutation.location.file).await;
                 let _file_guard = file_lock.lock().await;
 
-                let result =
-                    test_single_mutation(&project_path, &mutation, timeout_duration).await;
+                let result = test_single_mutation(&project_path, &mutation, timeout_duration).await;
 
                 // Update counters and progress
                 match result.status {
@@ -195,7 +194,11 @@ async fn test_single_mutation(
         Ok(Err(e)) => (MutantStatus::Error, None, Some(e.to_string())),
         Err(_) => {
             // Timeout - counts as killed (infinite loop protection)
-            (MutantStatus::Timeout, None, Some("Test timed out".to_string()))
+            (
+                MutantStatus::Timeout,
+                None,
+                Some("Test timed out".to_string()),
+            )
         }
     };
 
@@ -226,7 +229,6 @@ async fn run_dart_test(project_path: &Path) -> Result<(i32, String, String)> {
 
     Ok((exit_code, stdout, stderr))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -480,8 +482,16 @@ mod tests {
         }
 
         // Each file should only have 1 concurrent access
-        assert_eq!(file_a_max.load(Ordering::SeqCst), 1, "File A max concurrent should be 1");
-        assert_eq!(file_b_max.load(Ordering::SeqCst), 1, "File B max concurrent should be 1");
+        assert_eq!(
+            file_a_max.load(Ordering::SeqCst),
+            1,
+            "File A max concurrent should be 1"
+        );
+        assert_eq!(
+            file_b_max.load(Ordering::SeqCst),
+            1,
+            "File B max concurrent should be 1"
+        );
     }
 
     #[tokio::test]
@@ -501,6 +511,9 @@ mod tests {
         let file_lock = get_file_lock(&file_locks, &path).await;
         let guard = file_lock.try_lock();
 
-        assert!(guard.is_ok(), "Lock should be available after previous guard dropped");
+        assert!(
+            guard.is_ok(),
+            "Lock should be available after previous guard dropped"
+        );
     }
 }

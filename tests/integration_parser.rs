@@ -72,12 +72,12 @@ mod discover_files {
         ];
 
         let test_paths = vec![
-            ("lib/model.g.dart", true),      // Should be excluded
-            ("lib/model.freezed.dart", true), // Should be excluded
-            ("lib/model.mocks.dart", true),   // Should be excluded
+            ("lib/model.g.dart", true),          // Should be excluded
+            ("lib/model.freezed.dart", true),    // Should be excluded
+            ("lib/model.mocks.dart", true),      // Should be excluded
             ("test/calculator_test.dart", true), // Should be excluded
-            ("lib/calculator.dart", false),   // Should NOT be excluded
-            ("lib/string_utils.dart", false), // Should NOT be excluded
+            ("lib/calculator.dart", false),      // Should NOT be excluded
+            ("lib/string_utils.dart", false),    // Should NOT be excluded
         ];
 
         for (path, should_exclude) in test_paths {
@@ -173,13 +173,17 @@ mod parse_dart {
         let tree = parser.parse(&source, None).expect("Should parse");
 
         // Count binary expressions (which are mutation candidates)
-        let binary_count = count_nodes_of_kind(&tree.root_node(), &source, &[
-            "binary_expression",
-            "additive_expression",
-            "multiplicative_expression",
-            "relational_expression",
-            "equality_expression",
-        ]);
+        let binary_count = count_nodes_of_kind(
+            &tree.root_node(),
+            &source,
+            &[
+                "binary_expression",
+                "additive_expression",
+                "multiplicative_expression",
+                "relational_expression",
+                "equality_expression",
+            ],
+        );
 
         // calculator.dart has multiple arithmetic and comparison operations
         assert!(
@@ -202,10 +206,11 @@ mod parse_dart {
         let tree = parser.parse(&source, None).expect("Should parse");
 
         // validateInput has && operators
-        let logical_count = count_nodes_of_kind(&tree.root_node(), &source, &[
-            "logical_and_expression",
-            "logical_or_expression",
-        ]);
+        let logical_count = count_nodes_of_kind(
+            &tree.root_node(),
+            &source,
+            &["logical_and_expression", "logical_or_expression"],
+        );
 
         assert!(
             logical_count >= 1,
@@ -252,14 +257,21 @@ mod parse_dart {
         let has_null_coalescing = source.contains("??");
         let has_null_aware_access = source.contains("?.");
 
-        assert!(has_null_coalescing, "null_safe.dart should have ?? operator");
-        assert!(has_null_aware_access, "null_safe.dart should have ?. operator");
+        assert!(
+            has_null_coalescing,
+            "null_safe.dart should have ?? operator"
+        );
+        assert!(
+            has_null_aware_access,
+            "null_safe.dart should have ?. operator"
+        );
 
         // The parser should recognize these constructs
-        let null_aware_count = count_nodes_of_kind(&tree.root_node(), &source, &[
-            "if_null_expression",
-            "conditional_member_access",
-        ]);
+        let null_aware_count = count_nodes_of_kind(
+            &tree.root_node(),
+            &source,
+            &["if_null_expression", "conditional_member_access"],
+        );
 
         // The parser finds at least one null-aware construct (tree-sitter node types may vary)
         assert!(
@@ -305,7 +317,10 @@ mod mutation_discovery {
         assert!(source.contains("a + b"), "Should have addition");
         assert!(source.contains("a - b"), "Should have subtraction");
         assert!(source.contains("a * b"), "Should have multiplication");
-        assert!(source.contains("a ~/ b") || source.contains("a / b"), "Should have division");
+        assert!(
+            source.contains("a ~/ b") || source.contains("a / b"),
+            "Should have division"
+        );
         assert!(source.contains("n % 2"), "Should have modulo");
 
         // All of these are valid mutation targets
@@ -406,7 +421,10 @@ mod mutation_discovery {
         // - value != null (null check)
         // - items == null (null check)
 
-        assert!(source.contains("??"), "Should have null coalescing operator");
+        assert!(
+            source.contains("??"),
+            "Should have null coalescing operator"
+        );
         assert!(source.contains("?."), "Should have null-aware access");
         assert!(
             source.contains("!= null") || source.contains("== null"),
