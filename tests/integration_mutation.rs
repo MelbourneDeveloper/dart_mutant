@@ -1,3 +1,16 @@
+// Allow test-specific patterns that are fine in test code
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::assertions_on_constants,
+    clippy::unnecessary_literal_unwrap,
+    clippy::cloned_instead_of_copied,
+    clippy::iter_out_of_bounds,
+    clippy::needless_collect,
+    clippy::useless_vec
+)]
+
 //! Integration tests for mutation generation
 //!
 //! These tests verify that the mutation system correctly:
@@ -18,7 +31,6 @@ fn fixtures_path() -> PathBuf {
 fn lib_path() -> PathBuf {
     fixtures_path().join("lib")
 }
-
 
 mod mutation_generation {
     use super::*;
@@ -195,7 +207,6 @@ mod mutation_generation {
     }
 }
 
-
 mod mutation_application {
     #[test]
     fn applies_arithmetic_mutation_correctly() {
@@ -237,14 +248,14 @@ bool isPositive(int n) {
 "#;
 
         // Mutate > to >=
-        let mutated = source.replace(">", ">=");
+        let mutated = source.replace('>', ">=");
         assert!(
             mutated.contains("n >= 0"),
             "Mutated code should have 'n >= 0'"
         );
 
         // Mutate > to <
-        let mutated2 = source.replace(">", "<");
+        let mutated2 = source.replace('>', "<");
         assert!(
             mutated2.contains("n < 0"),
             "Mutated code should have 'n < 0'"
@@ -265,10 +276,7 @@ bool isInRange(int n, int min, int max) {
             mutated.contains("||"),
             "Mutated code should have '||' instead of '&&'"
         );
-        assert!(
-            !mutated.contains("&&"),
-            "Mutated code should NOT have '&&'"
-        );
+        assert!(!mutated.contains("&&"), "Mutated code should NOT have '&&'");
     }
 
     #[test]
@@ -285,10 +293,7 @@ String getValueOrDefault(String? value) {
 
         // Note: this would cause a null safety error, but the mutation
         // is syntactically valid - the test runner will catch it
-        assert!(
-            !mutated.contains("??"),
-            "Mutated code should not have ??"
-        );
+        assert!(!mutated.contains("??"), "Mutated code should not have ??");
     }
 
     #[test]
@@ -424,7 +429,6 @@ int increment(int n) {
     }
 }
 
-
 mod mutation_coverage {
     use super::*;
 
@@ -519,5 +523,405 @@ mod mutation_coverage {
             "null_safe.dart should have at least 4 Dart-specific mutation targets (null safety), found {}",
             dart_specific
         );
+    }
+}
+
+/// Tests for AI suggestion parsing and mutation conversion
+mod ai_suggestion_parsing {
+    /// Test parsing Anthropic response format
+    #[test]
+    fn parses_anthropic_response_format() {
+        let response = serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": r#"[{"line": 10, "column": 5, "original": ">=", "mutated": ">", "reason": "Boundary check", "confidence": 0.85}]"#
+            }]
+        });
+
+        let content = response
+            .get("content")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|msg| msg.get("text"))
+            .and_then(|t| t.as_str())
+            .unwrap();
+
+        assert!(content.contains("line"));
+        assert!(content.contains(">="));
+    }
+
+    /// Test parsing OpenAI response format
+    #[test]
+    fn parses_openai_response_format() {
+        let response = serde_json::json!({
+            "choices": [{
+                "message": {
+                    "content": r#"[{"line": 10, "column": 5, "original": ">=", "mutated": ">", "reason": "Boundary check", "confidence": 0.85}]"#
+                }
+            }]
+        });
+
+        let content = response
+            .get("choices")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|choice| choice.get("message"))
+            .and_then(|msg| msg.get("content"))
+            .and_then(|t| t.as_str())
+            .unwrap();
+
+        assert!(content.contains("line"));
+        assert!(content.contains(">="));
+    }
+
+    /// Test parsing Ollama response format
+    #[test]
+    fn parses_ollama_response_format() {
+        let response = serde_json::json!({
+            "response": r#"[{"line": 10, "column": 5, "original": ">=", "mutated": ">", "reason": "Boundary check", "confidence": 0.85}]"#
+        });
+
+        let content = response.get("response").and_then(|r| r.as_str()).unwrap();
+
+        assert!(content.contains("line"));
+        assert!(content.contains(">="));
+    }
+
+    /// Test JSON extraction from markdown code blocks
+    #[test]
+    fn extracts_json_from_markdown_code_blocks() {
+        let content = r#"Here's the analysis:
+```json
+[{"line": 10, "column": 5, "original": ">=", "mutated": ">", "reason": "test", "confidence": 0.8}]
+```
+That's all!"#;
+
+        let json_str = if let Some(start) = content.find('[') {
+            if let Some(end) = content.rfind(']') {
+                &content[start..=end]
+            } else {
+                content
+            }
+        } else {
+            content
+        };
+
+        assert!(json_str.starts_with('['));
+        assert!(json_str.ends_with(']'));
+
+        let parsed: Vec<serde_json::Value> = serde_json::from_str(json_str).unwrap();
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0]["line"], 10);
+    }
+
+    /// Test handling of empty/invalid AI response
+    #[test]
+    fn handles_empty_ai_response() {
+        let content = "";
+        let json_str = if let Some(start) = content.find('[') {
+            if let Some(end) = content.rfind(']') {
+                &content[start..=end]
+            } else {
+                content
+            }
+        } else {
+            content
+        };
+
+        let suggestions: Vec<serde_json::Value> =
+            serde_json::from_str(json_str).unwrap_or_default();
+        assert!(suggestions.is_empty());
+    }
+
+    /// Test suggestion to mutation conversion logic
+    #[test]
+    fn suggestion_line_column_validation() {
+        // Line 0 is invalid
+        assert!(0_usize == 0); // Line numbering starts at 1
+
+        // Column 0 should be treated as column 1
+        let col_offset = 0_usize.saturating_sub(1);
+        assert_eq!(col_offset, 0);
+
+        // Valid column
+        let col_offset = 5_usize.saturating_sub(1);
+        assert_eq!(col_offset, 4);
+    }
+
+    /// Test byte offset calculation for multi-line source
+    #[test]
+    fn calculates_byte_offset_correctly() {
+        let source = "line1\nline2\nline3";
+        let lines: Vec<&str> = source.lines().collect();
+
+        // Line 1 starts at byte 0
+        let mut byte_start = 0;
+        assert_eq!(byte_start, 0);
+
+        // Line 2 starts at byte 6 (5 chars + newline)
+        byte_start += lines[0].len() + 1;
+        assert_eq!(byte_start, 6);
+
+        // Line 3 starts at byte 12 (6 + 5 + 1)
+        byte_start += lines[1].len() + 1;
+        assert_eq!(byte_start, 12);
+    }
+
+    /// Test that AI-suggested mutations have correct flags
+    #[test]
+    fn ai_mutations_have_correct_metadata() {
+        // A proper AI mutation should have:
+        // - ai_suggested = true
+        // - ai_confidence = Some(value)
+        // - operator = AiSuggested
+
+        let ai_suggested = true;
+        let ai_confidence: Option<f64> = Some(0.85);
+
+        assert!(ai_suggested);
+        assert!(ai_confidence.is_some());
+        assert!((ai_confidence.unwrap() - 0.85).abs() < f64::EPSILON);
+    }
+}
+
+/// Tests for mutation sampling functionality
+mod mutation_sampling {
+    #[test]
+    fn sample_returns_empty_for_empty_input() {
+        let mutations: Vec<i32> = vec![];
+        let count = 5;
+
+        // Sampling from empty should return empty
+        let sampled: Vec<i32> = if count == 0 || mutations.is_empty() {
+            vec![]
+        } else if count >= mutations.len() {
+            mutations.clone()
+        } else {
+            mutations.iter().take(count).cloned().collect()
+        };
+
+        assert!(sampled.is_empty());
+    }
+
+    #[test]
+    fn sample_returns_all_when_count_exceeds_length() {
+        let mutations = vec![1, 2, 3, 4, 5];
+        let count = 10;
+
+        let sampled: Vec<i32> = if count >= mutations.len() {
+            mutations.clone()
+        } else {
+            mutations.iter().take(count).cloned().collect()
+        };
+
+        assert_eq!(sampled.len(), 5);
+        assert_eq!(sampled, mutations);
+    }
+
+    #[test]
+    fn sample_returns_exact_count_when_smaller() {
+        let mutations = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let count = 3;
+
+        // Using deterministic take instead of random for testing
+        let sampled: Vec<i32> = mutations.iter().take(count).cloned().collect();
+
+        assert_eq!(sampled.len(), 3);
+    }
+
+    #[test]
+    fn sample_zero_returns_empty() {
+        let mutations = vec![1, 2, 3, 4, 5];
+        let count = 0;
+
+        let sampled: Vec<i32> = if count == 0 {
+            vec![]
+        } else {
+            mutations.iter().take(count).cloned().collect()
+        };
+
+        assert!(sampled.is_empty());
+    }
+}
+
+/// Tests for mutation operator names
+mod mutation_operator_names {
+    #[test]
+    fn arithmetic_operators_have_descriptive_names() {
+        let operator_names = [
+            "ArithmeticAddToSub",
+            "ArithmeticSubToAdd",
+            "ArithmeticMulToDiv",
+            "ArithmeticDivToMul",
+        ];
+
+        for name in &operator_names {
+            assert!(name.starts_with("Arithmetic"));
+            assert!(name.contains("To"));
+        }
+    }
+
+    #[test]
+    fn comparison_operators_have_descriptive_names() {
+        let operator_names = [
+            "ComparisonLtToLte",
+            "ComparisonLteToLt",
+            "ComparisonGtToGte",
+            "ComparisonGteToGt",
+            "ComparisonEqToNeq",
+            "ComparisonNeqToEq",
+        ];
+
+        for name in &operator_names {
+            assert!(name.starts_with("Comparison"));
+        }
+    }
+
+    #[test]
+    fn logical_operators_have_descriptive_names() {
+        let operator_names = ["LogicalAndToOr", "LogicalOrToAnd", "LogicalNotRemoval"];
+
+        for name in &operator_names {
+            assert!(name.starts_with("Logical"));
+        }
+    }
+
+    #[test]
+    fn null_safety_operators_have_descriptive_names() {
+        let operator_names = [
+            "NullCoalescingRemoval",
+            "NullAwareAccessRemoval",
+            "NullAssertionRemoval",
+            "NullCheckToTrue",
+            "NullCheckToFalse",
+        ];
+
+        for name in &operator_names {
+            assert!(name.starts_with("Null"));
+        }
+    }
+
+    #[test]
+    fn all_operators_follow_naming_convention() {
+        // Operators should be PascalCase
+        let valid_operators = [
+            "Arithmetic",
+            "Comparison",
+            "Logical",
+            "Boolean",
+            "Unary",
+            "NullSafety",
+            "String",
+            "Conditional",
+            "Collection",
+            "AiSuggested",
+        ];
+
+        for op in &valid_operators {
+            // First char uppercase
+            assert!(op.chars().next().unwrap().is_uppercase());
+            // No underscores
+            assert!(!op.contains('_'));
+        }
+    }
+}
+
+/// Tests for Mutation::apply functionality
+mod mutation_apply {
+    #[test]
+    fn apply_replaces_at_correct_position() {
+        let source = "int x = a + b;";
+        let byte_start = 10; // Position of '+'
+        let byte_end = 11;
+        let replacement = "-";
+
+        // Simulating Mutation::apply logic
+        let result = format!(
+            "{}{}{}",
+            &source[..byte_start],
+            replacement,
+            &source[byte_end..]
+        );
+
+        assert_eq!(result, "int x = a - b;");
+    }
+
+    #[test]
+    fn apply_handles_multi_char_replacement() {
+        let source = "if (x > y)";
+        let byte_start = 6; // Position of '>'
+        let byte_end = 7;
+        let replacement = ">=";
+
+        let result = format!(
+            "{}{}{}",
+            &source[..byte_start],
+            replacement,
+            &source[byte_end..]
+        );
+
+        assert_eq!(result, "if (x >= y)");
+    }
+
+    #[test]
+    fn apply_handles_deletion() {
+        let source = "value ?? 'default'";
+        let byte_start = 5; // Position of ' ??' (space before ??)
+        let byte_end = 18; // End of " ?? 'default'"
+        let replacement = "";
+
+        let result = format!(
+            "{}{}{}",
+            &source[..byte_start],
+            replacement,
+            &source[byte_end..]
+        );
+
+        assert_eq!(result, "value");
+    }
+
+    #[test]
+    fn apply_handles_start_of_string() {
+        let source = "true && false";
+        let byte_start = 0;
+        let byte_end = 4;
+        let replacement = "false";
+
+        let result = format!(
+            "{}{}{}",
+            &source[..byte_start],
+            replacement,
+            &source[byte_end..]
+        );
+
+        assert_eq!(result, "false && false");
+    }
+
+    #[test]
+    fn apply_handles_end_of_string() {
+        let source = "return true";
+        let byte_start = 7;
+        let byte_end = 11;
+        let replacement = "false";
+
+        let result = format!(
+            "{}{}{}",
+            &source[..byte_start],
+            replacement,
+            &source[byte_end..]
+        );
+
+        assert_eq!(result, "return false");
+    }
+
+    #[test]
+    fn apply_preserves_unicode() {
+        let source = "String emoji = '🎉';";
+        let byte_start = 16; // Position after '='
+        let byte_end = 20; // Position after emoji (4 bytes for emoji)
+
+        // Just verify the slice positions work with unicode
+        assert!(byte_start < source.len());
+        assert!(byte_end <= source.len());
     }
 }

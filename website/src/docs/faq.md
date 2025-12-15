@@ -9,14 +9,14 @@ title: FAQ
 
 ### What is mutation testing?
 
-Mutation testing evaluates your test suite's quality by introducing deliberate bugs (mutations) into your code and checking if your tests catch them. Unlike code coverage, which only measures what code *runs*, mutation testing measures what code is actually *verified* by assertions.
+Mutation testing evaluates your test suite's quality by introducing deliberate bugs (mutations) into your code and checking if your tests catch them. Unlike code coverage, which only measures what code _runs_, mutation testing measures what code is actually _verified_ by assertions.
 
 ### How is this different from code coverage?
 
-| Metric | Measures | Example |
-|--------|----------|---------|
-| Code Coverage | Lines executed | A line runs = covered |
-| Mutation Score | Bugs detected | A bug is caught = killed |
+| Metric         | Measures       | Example                  |
+| -------------- | -------------- | ------------------------ |
+| Code Coverage  | Lines executed | A line runs = covered    |
+| Mutation Score | Bugs detected  | A bug is caught = killed |
 
 You can have 100% code coverage but only 50% mutation score if your tests execute code without verifying results.
 
@@ -38,13 +38,13 @@ test('calculates correctly', () {
 
 ### What's a good mutation score?
 
-| Score | Interpretation |
-|-------|---------------|
-| 90%+ | Excellent |
-| 80-89% | Good |
-| 70-79% | Acceptable |
+| Score  | Interpretation    |
+| ------ | ----------------- |
+| 90%+   | Excellent         |
+| 80-89% | Good              |
+| 70-79% | Acceptable        |
 | 60-69% | Needs improvement |
-| <60% | Weak test suite |
+| <60%   | Weak test suite   |
 
 Start by establishing a baseline, then gradually improve.
 
@@ -78,11 +78,11 @@ dart_mutant --incremental --base-ref main
 
 Rough estimates:
 
-| Project Size | Mutations | Full Run | Sampled (100) |
-|--------------|-----------|----------|---------------|
-| Small (<10 files) | 200-500 | 5-15 min | 1-3 min |
-| Medium (10-50 files) | 500-2000 | 15-60 min | 3-10 min |
-| Large (50+ files) | 2000+ | 1-4 hours | 10-30 min |
+| Project Size         | Mutations | Full Run  | Sampled (100) |
+| -------------------- | --------- | --------- | ------------- |
+| Small (<10 files)    | 200-500   | 5-15 min  | 1-3 min       |
+| Medium (10-50 files) | 500-2000  | 15-60 min | 3-10 min      |
+| Large (50+ files)    | 2000+     | 1-4 hours | 10-30 min     |
 
 ## Results
 
@@ -174,6 +174,7 @@ See [CI/CD Integration](/docs/ci/) for full examples.
 ### "No mutations found"
 
 Check:
+
 1. Are there `.dart` files in `lib/`?
 2. Are all files excluded by patterns?
 3. Is the code too simple (no operators to mutate)?

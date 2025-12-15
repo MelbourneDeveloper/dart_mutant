@@ -11,7 +11,7 @@ title: Introduction
 
 Mutation testing evaluates your test suite's quality by introducing deliberate bugs (mutants) into your source code and checking if your tests catch them.
 
-> **Key insight:** Code coverage only tells you what code *runs* during tests. Mutation testing tells you what code is actually *verified* by assertions.
+> **Key insight:** Code coverage only tells you what code _runs_ during tests. Mutation testing tells you what code is actually _verified_ by assertions.
 
 ### How It Works
 
@@ -28,6 +28,7 @@ The **mutation score** (`killed / total`) measures your test suite's fault-detec
 ### AST-Based Precision
 
 Unlike regex-based mutation tools, dart_mutant:
+
 - Parses code into an Abstract Syntax Tree
 - Only creates syntactically valid mutations
 - Never mutates comments, strings (unless intentional), or generated code

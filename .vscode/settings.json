@@ -9,7 +9,6 @@
     "rust-analyzer.runnables.extraTestBinaryArgs": [],
     "rust-analyzer.cargo.target": null,
     "rust-analyzer.checkOnSave": true,
-    "rust-analyzer.cargo.allFeatures": true,
     "rust-analyzer.procMacro.enable": true,
     "rust-analyzer.lens.enable": true,
     "rust-analyzer.lens.run.enable": true,

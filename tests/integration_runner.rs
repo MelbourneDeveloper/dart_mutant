@@ -1,3 +1,15 @@
+// Allow test-specific patterns that are fine in test code
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::ptr_arg,
+    clippy::needless_collect,
+    clippy::useless_vec,
+    clippy::single_char_pattern,
+    clippy::bool_comparison
+)]
+
 //! Integration tests for the mutation test runner
 //!
 //! These tests verify that the runner correctly:
@@ -20,23 +32,17 @@ fn lib_path() -> PathBuf {
     fixtures_path().join("lib")
 }
 
-
 mod dart_environment {
     use super::*;
     use std::process::Command;
 
     #[test]
     fn dart_sdk_is_available() {
-        let output = Command::new("dart")
-            .arg("--version")
-            .output();
+        let output = Command::new("dart").arg("--version").output();
 
         match output {
             Ok(out) => {
-                assert!(
-                    out.status.success(),
-                    "dart --version should succeed"
-                );
+                assert!(out.status.success(), "dart --version should succeed");
                 let version = String::from_utf8_lossy(&out.stdout);
                 println!("Dart version: {}", version);
                 assert!(
@@ -62,7 +68,10 @@ mod dart_environment {
 
         let content = std::fs::read_to_string(&pubspec).expect("Should read pubspec");
         assert!(content.contains("name:"), "pubspec should have name");
-        assert!(content.contains("test:"), "pubspec should have test dependency");
+        assert!(
+            content.contains("test:"),
+            "pubspec should have test dependency"
+        );
     }
 
     #[test]
@@ -94,7 +103,6 @@ mod dart_environment {
     }
 }
 
-
 mod file_manipulation {
     use super::*;
     use std::fs;
@@ -106,10 +114,7 @@ mod file_manipulation {
 
         assert!(source.is_ok(), "Should read calculator.dart");
         let source = source.unwrap();
-        assert!(
-            !source.is_empty(),
-            "calculator.dart should not be empty"
-        );
+        assert!(!source.is_empty(), "calculator.dart should not be empty");
         assert!(
             source.contains("class Calculator"),
             "Should contain Calculator class"
@@ -126,24 +131,15 @@ mod file_manipulation {
 
         // Write original
         fs::write(&temp_path, original_content).expect("Should write original");
-        assert_eq!(
-            fs::read_to_string(&temp_path).unwrap(),
-            original_content
-        );
+        assert_eq!(fs::read_to_string(&temp_path).unwrap(), original_content);
 
         // Write mutated version
         fs::write(&temp_path, mutated_content).expect("Should write mutated");
-        assert_eq!(
-            fs::read_to_string(&temp_path).unwrap(),
-            mutated_content
-        );
+        assert_eq!(fs::read_to_string(&temp_path).unwrap(), mutated_content);
 
         // Restore original
         fs::write(&temp_path, original_content).expect("Should restore original");
-        assert_eq!(
-            fs::read_to_string(&temp_path).unwrap(),
-            original_content
-        );
+        assert_eq!(fs::read_to_string(&temp_path).unwrap(), original_content);
 
         // Cleanup
         fs::remove_file(&temp_path).ok();
@@ -183,7 +179,6 @@ mod file_manipulation {
     }
 }
 
-
 mod mutation_testing_logic {
     /// Represents the possible outcomes of testing a mutation
     #[derive(Debug, Clone, Copy, PartialEq)]
@@ -206,7 +201,10 @@ mod mutation_testing_logic {
         let test_passes_mutated = mutated_add(2, 3) == 5;
 
         assert!(test_passes_original, "Original should pass test");
-        assert!(!test_passes_mutated, "Mutated should fail test (mutation killed)");
+        assert!(
+            !test_passes_mutated,
+            "Mutated should fail test (mutation killed)"
+        );
 
         let status = if test_passes_mutated {
             MutantStatus::Survived
@@ -258,14 +256,11 @@ mod mutation_testing_logic {
         let mutated_is_adult = |age: i32| age > 18; // >= to >
 
         // Weak test doesn't check boundary
-        let weak_test = |f: fn(i32) -> bool| {
-            f(20) == true && f(10) == false
-        };
+        let weak_test = |f: fn(i32) -> bool| f(20) == true && f(10) == false;
 
         // Strong test checks boundary
-        let strong_test = |f: fn(i32) -> bool| {
-            f(20) == true && f(10) == false && f(18) == true && f(17) == false
-        };
+        let strong_test =
+            |f: fn(i32) -> bool| f(20) == true && f(10) == false && f(18) == true && f(17) == false;
 
         // Weak test passes for both
         assert!(weak_test(is_adult));
@@ -273,7 +268,10 @@ mod mutation_testing_logic {
 
         // Strong test catches the mutation
         assert!(strong_test(is_adult));
-        assert!(!strong_test(mutated_is_adult), "Boundary test catches >= to > mutation");
+        assert!(
+            !strong_test(mutated_is_adult),
+            "Boundary test catches >= to > mutation"
+        );
     }
 
     #[test]
@@ -283,9 +281,9 @@ mod mutation_testing_logic {
 
         // Need tests that distinguish && from ||
         let tests = vec![
-            ((true, true), true, true),    // Same for && and ||
-            ((true, false), false, true),  // Different!
-            ((false, true), false, true),  // Different!
+            ((true, true), true, true),     // Same for && and ||
+            ((true, false), false, true),   // Different!
+            ((false, true), false, true),   // Different!
             ((false, false), false, false), // Same for && and ||
         ];
 
@@ -298,10 +296,12 @@ mod mutation_testing_logic {
             }
         }
 
-        assert!(mutation_detected, "Some test case should detect && to || mutation");
+        assert!(
+            mutation_detected,
+            "Some test case should detect && to || mutation"
+        );
     }
 }
-
 
 mod timeout_handling {
     use std::time::Duration;
@@ -346,7 +346,6 @@ mod timeout_handling {
     }
 }
 
-
 mod parallel_execution {
     #[test]
     fn parallel_job_count_is_reasonable() {
@@ -381,7 +380,6 @@ mod parallel_execution {
         assert_eq!(total_assigned, total_mutations);
     }
 }
-
 
 /// Comprehensive parallelism tests proving concurrent execution works correctly
 mod parallelism_proof {
@@ -583,7 +581,8 @@ mod parallelism_proof {
         // Per-file concurrent access tracking
         let file_access_counts: Arc<Mutex<HashMap<PathBuf, Arc<AtomicUsize>>>> =
             Arc::new(Mutex::new(HashMap::new()));
-        let max_per_file: Arc<Mutex<HashMap<PathBuf, usize>>> = Arc::new(Mutex::new(HashMap::new()));
+        let max_per_file: Arc<Mutex<HashMap<PathBuf, usize>>> =
+            Arc::new(Mutex::new(HashMap::new()));
         let global_concurrent = Arc::new(AtomicUsize::new(0));
         let max_global_concurrent = Arc::new(AtomicUsize::new(0));
 
@@ -745,7 +744,8 @@ mod parallelism_proof {
         assert!(
             max_seen <= parallel_jobs,
             "Exceeded semaphore limit! Max {} concurrent but limit was {}",
-            max_seen, parallel_jobs
+            max_seen,
+            parallel_jobs
         );
 
         // PROOF: Actually used parallelism (not just 1)
@@ -755,7 +755,10 @@ mod parallelism_proof {
             max_seen
         );
 
-        println!("SEMAPHORE PROOF: max {} concurrent (limit {})", max_seen, parallel_jobs);
+        println!(
+            "SEMAPHORE PROOF: max {} concurrent (limit {})",
+            max_seen, parallel_jobs
+        );
     }
 
     #[tokio::test]
@@ -801,12 +804,16 @@ mod parallelism_proof {
             final_survived
         );
         assert_eq!(
-            final_killed + final_survived, 100,
+            final_killed + final_survived,
+            100,
             "Total should be 100, got {}",
             final_killed + final_survived
         );
 
-        println!("COUNTER PROOF: {} killed + {} survived = 100 (exact)", final_killed, final_survived);
+        println!(
+            "COUNTER PROOF: {} killed + {} survived = 100 (exact)",
+            final_killed, final_survived
+        );
     }
 
     #[tokio::test]
@@ -839,7 +846,8 @@ mod parallelism_proof {
         // Verify correct number of unique locks created
         let locks = file_locks.lock().await;
         assert_eq!(
-            locks.len(), 5,
+            locks.len(),
+            5,
             "Should have exactly 5 unique file locks, got {}",
             locks.len()
         );
@@ -848,14 +856,13 @@ mod parallelism_proof {
     }
 }
 
-
 /// Tests proving file restoration works correctly under concurrent access
 mod file_restoration_proof {
+    use std::collections::HashMap;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
-    use std::collections::HashMap;
     use tokio::sync::Mutex;
 
     type FileLocks = Arc<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>>;
@@ -997,9 +1004,7 @@ mod file_restoration_proof {
         let files_restored = Arc::new(AtomicUsize::new(0));
 
         let mut test_files = Vec::new();
-        let originals: Vec<_> = (0..4)
-            .map(|i| format!("// File {} original", i))
-            .collect();
+        let originals: Vec<_> = (0..4).map(|i| format!("// File {} original", i)).collect();
 
         // Create test files
         for (i, original) in originals.iter().enumerate() {
@@ -1093,7 +1098,6 @@ mod file_restoration_proof {
         println!("PANIC RESTORATION PROOF: File restored even after simulated panic");
     }
 }
-
 
 /// Stress tests for parallelism under load
 mod parallelism_stress_tests {
@@ -1310,7 +1314,6 @@ mod parallelism_stress_tests {
     }
 }
 
-
 /// Integration tests verifying the actual runner behavior
 mod runner_integration {
     use std::fs;
@@ -1382,9 +1385,8 @@ mod runner_integration {
         assert_eq!(statuses.len(), 6, "Should have 6 status variants");
 
         // Timeout counts as killed (mutation detected)
-        let counts_as_detected = |s: &MutantStatus| {
-            matches!(s, MutantStatus::Killed | MutantStatus::Timeout)
-        };
+        let counts_as_detected =
+            |s: &MutantStatus| matches!(s, MutantStatus::Killed | MutantStatus::Timeout);
 
         assert!(counts_as_detected(&MutantStatus::Killed));
         assert!(counts_as_detected(&MutantStatus::Timeout));

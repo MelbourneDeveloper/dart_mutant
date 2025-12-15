@@ -15,22 +15,22 @@ dart_mutant [OPTIONS]
 
 ## General Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--path <DIR>` | `-p` | Path to Dart project | Current directory |
-| `--help` | `-h` | Show help message | |
-| `--version` | `-V` | Show version | |
-| `--quiet` | `-q` | Minimal output | false |
-| `--verbose` | `-v` | Detailed output | false |
-| `--dry-run` | | Show mutations without running tests | false |
+| Option         | Short | Description                          | Default           |
+| -------------- | ----- | ------------------------------------ | ----------------- |
+| `--path <DIR>` | `-p`  | Path to Dart project                 | Current directory |
+| `--help`       | `-h`  | Show help message                    |                   |
+| `--version`    | `-V`  | Show version                         |                   |
+| `--quiet`      | `-q`  | Minimal output                       | false             |
+| `--verbose`    | `-v`  | Detailed output                      | false             |
+| `--dry-run`    |       | Show mutations without running tests | false             |
 
 ## Test Execution
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--parallel <N>` | Number of parallel test jobs | CPU count |
-| `--timeout <SECS>` | Per-mutation timeout in seconds | 30 |
-| `--sample <N>` | Test only N random mutations | All |
+| Option             | Description                     | Default   |
+| ------------------ | ------------------------------- | --------- |
+| `--parallel <N>`   | Number of parallel test jobs    | CPU count |
+| `--timeout <SECS>` | Per-mutation timeout in seconds | 30        |
+| `--sample <N>`     | Test only N random mutations    | All       |
 
 ### Examples
 
@@ -47,14 +47,15 @@ dart_mutant --dry-run
 
 ## Filtering
 
-| Option | Description |
-|--------|-------------|
-| `--glob <PATTERN>` | Only mutate files matching glob pattern |
+| Option                | Description                                 |
+| --------------------- | ------------------------------------------- |
+| `--glob <PATTERN>`    | Only mutate files matching glob pattern     |
 | `--exclude <PATTERN>` | Exclude files matching pattern (can repeat) |
 
 ### Default Exclusions
 
 dart_mutant automatically excludes:
+
 - `**/*.g.dart` (generated)
 - `**/*.freezed.dart` (freezed)
 - `**/*.gr.dart` (auto_route)
@@ -72,10 +73,10 @@ dart_mutant --exclude "**/legacy/**" --exclude "**/deprecated/**"
 
 ## Incremental Mode
 
-| Option | Description |
-|--------|-------------|
-| `--incremental` | Only test mutations in changed files |
-| `--base-ref <REF>` | Git ref to compare against | main |
+| Option             | Description                          |
+| ------------------ | ------------------------------------ | ---- |
+| `--incremental`    | Only test mutations in changed files |
+| `--base-ref <REF>` | Git ref to compare against           | main |
 
 ### Examples
 
@@ -89,13 +90,13 @@ dart_mutant --incremental --base-ref HEAD~5
 
 ## Output & Reports
 
-| Option | Description | Output Path |
-|--------|-------------|-------------|
-| `--html` | Generate HTML report | `mutation-reports/mutation-report.html` |
-| `--json` | Generate Stryker-compatible JSON | `mutation-reports/mutation-report.json` |
-| `--junit` | Generate JUnit XML | `mutation-reports/junit.xml` |
-| `--open` | Open HTML report in browser | |
-| `--output-dir <DIR>` | Custom output directory | `mutation-reports/` |
+| Option               | Description                      | Output Path                             |
+| -------------------- | -------------------------------- | --------------------------------------- |
+| `--html`             | Generate HTML report             | `mutation-reports/mutation-report.html` |
+| `--json`             | Generate Stryker-compatible JSON | `mutation-reports/mutation-report.json` |
+| `--junit`            | Generate JUnit XML               | `mutation-reports/junit.xml`            |
+| `--open`             | Open HTML report in browser      |                                         |
+| `--output-dir <DIR>` | Custom output directory          | `mutation-reports/`                     |
 
 ### Examples
 
@@ -112,8 +113,8 @@ dart_mutant --html --output-dir ./reports
 
 ## CI/CD Options
 
-| Option | Description |
-|--------|-------------|
+| Option                  | Description                            |
+| ----------------------- | -------------------------------------- |
 | `--threshold <PERCENT>` | Fail if mutation score below threshold |
 
 ### Examples
@@ -128,11 +129,11 @@ dart_mutant --quiet --threshold 80 --junit
 
 ## AI-Powered Mutations
 
-| Option | Description |
-|--------|-------------|
-| `--ai <PROVIDER>` | AI provider: `anthropic`, `openai`, `ollama` |
-| `--ollama-model <MODEL>` | Ollama model name | codellama |
-| `--ollama-url <URL>` | Ollama API URL | http://localhost:11434 |
+| Option                   | Description                                  |
+| ------------------------ | -------------------------------------------- | ---------------------- |
+| `--ai <PROVIDER>`        | AI provider: `anthropic`, `openai`, `ollama` |
+| `--ollama-model <MODEL>` | Ollama model name                            | codellama              |
+| `--ollama-url <URL>`     | Ollama API URL                               | http://localhost:11434 |
 
 ### Environment Variables
 
@@ -152,11 +153,11 @@ dart_mutant --ai ollama --ollama-model codellama
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success (score >= threshold or no threshold set) |
-| 1 | Mutation score below threshold |
-| 2 | Error (invalid arguments, project not found, etc.) |
+| Code | Meaning                                            |
+| ---- | -------------------------------------------------- |
+| 0    | Success (score >= threshold or no threshold set)   |
+| 1    | Mutation score below threshold                     |
+| 2    | Error (invalid arguments, project not found, etc.) |
 
 ## Configuration File (Future)
 

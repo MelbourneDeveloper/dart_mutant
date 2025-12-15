@@ -1,12 +1,16 @@
 //! Beautiful HTML and JSON report generation
 //!
 //! Generates Stryker-compatible reports with stunning visuals.
+//! Uses the Toxic Lab theme from the dart_mutant website.
+
+mod css;
 
 use crate::mutation::MutantStatus;
 use crate::runner::MutantTestResult;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::Path;
 
 /// Helper trait for MutantStatus display
@@ -131,7 +135,11 @@ pub fn generate_html_report(
         })
         .collect();
 
-    file_stats.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+    file_stats.sort_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let html = generate_html_content(result, &file_stats, dart_files.len());
 
@@ -150,13 +158,17 @@ struct FileStats {
     mutants: Vec<MutantTestResult>,
 }
 
-fn generate_html_content(result: &MutationResult, file_stats: &[FileStats], total_files: usize) -> String {
-    let score_color = if result.mutation_score >= 80.0 {
-        "#22c55e"
+fn generate_html_content(
+    result: &MutationResult,
+    file_stats: &[FileStats],
+    total_files: usize,
+) -> String {
+    let score_class = if result.mutation_score >= 80.0 {
+        "high"
     } else if result.mutation_score >= 60.0 {
-        "#eab308"
+        "medium"
     } else {
-        "#ef4444"
+        "low"
     };
 
     let files_html: String = file_stats
@@ -164,419 +176,44 @@ fn generate_html_content(result: &MutationResult, file_stats: &[FileStats], tota
         .map(|f| generate_file_section(f))
         .collect();
 
+    let report_css = css::get_report_css();
+
     format!(
         r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dart Mutant - Mutation Testing Report</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <title>🧬 Dart Mutant - Mutation Testing Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
-        :root {{
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-tertiary: #334155;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --accent-primary: #3b82f6;
-            --accent-secondary: #8b5cf6;
-            --killed: #22c55e;
-            --survived: #ef4444;
-            --timeout: #eab308;
-            --no-coverage: #64748b;
-            --error: #f97316;
-            --gradient-start: #3b82f6;
-            --gradient-end: #8b5cf6;
-        }}
-
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-
-        body {{
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }}
-
-        .container {{
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }}
-
-        /* Header */
-        .header {{
-            text-align: center;
-            margin-bottom: 3rem;
-            padding: 3rem;
-            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-            border-radius: 1.5rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            position: relative;
-            overflow: hidden;
-        }}
-
-        .header::before {{
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
-        }}
-
-        .logo {{
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
-        }}
-
-        .tagline {{
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-        }}
-
-        /* Score Card */
-        .score-card {{
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }}
-
-        .score-display {{
-            background: var(--bg-secondary);
-            border-radius: 1.5rem;
-            padding: 2.5rem;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }}
-
-        .score-label {{
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 0.5rem;
-        }}
-
-        .score-value {{
-            font-size: 5rem;
-            font-weight: 700;
-            color: {score_color};
-            line-height: 1;
-        }}
-
-        .score-bar {{
-            width: 100%;
-            height: 12px;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            overflow: hidden;
-            margin-top: 1.5rem;
-        }}
-
-        .score-bar-fill {{
-            height: 100%;
-            background: linear-gradient(90deg, {score_color}, {score_color}aa);
-            border-radius: 6px;
-            transition: width 1s ease-out;
-        }}
-
-        /* Stats Grid */
-        .stats-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 1rem;
-        }}
-
-        .stat-card {{
-            background: var(--bg-secondary);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }}
-
-        .stat-card:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-        }}
-
-        .stat-value {{
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }}
-
-        .stat-label {{
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }}
-
-        .stat-killed .stat-value {{ color: var(--killed); }}
-        .stat-survived .stat-value {{ color: var(--survived); }}
-        .stat-timeout .stat-value {{ color: var(--timeout); }}
-        .stat-no-coverage .stat-value {{ color: var(--no-coverage); }}
-        .stat-error .stat-value {{ color: var(--error); }}
-
-        /* Files Section */
-        .section-title {{
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }}
-
-        .section-title::before {{
-            content: '';
-            display: block;
-            width: 4px;
-            height: 24px;
-            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-            border-radius: 2px;
-        }}
-
-        .file-card {{
-            background: var(--bg-secondary);
-            border-radius: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden;
-        }}
-
-        .file-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            cursor: pointer;
-            transition: background 0.2s;
-        }}
-
-        .file-header:hover {{
-            background: var(--bg-tertiary);
-        }}
-
-        .file-name {{
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-            color: var(--text-primary);
-        }}
-
-        .file-stats {{
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }}
-
-        .file-score {{
-            font-weight: 600;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.85rem;
-        }}
-
-        .file-score.high {{ background: rgba(34, 197, 94, 0.2); color: var(--killed); }}
-        .file-score.medium {{ background: rgba(234, 179, 8, 0.2); color: var(--timeout); }}
-        .file-score.low {{ background: rgba(239, 68, 68, 0.2); color: var(--survived); }}
-
-        .file-mutants {{
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }}
-
-        .file-content {{
-            display: none;
-            padding: 1rem 1.5rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            background: var(--bg-primary);
-        }}
-
-        .file-card.expanded .file-content {{
-            display: block;
-        }}
-
-        /* Mutant List */
-        .mutant-item {{
-            display: flex;
-            align-items: flex-start;
-            gap: 1rem;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-secondary);
-            border-left: 3px solid transparent;
-        }}
-
-        .mutant-item.killed {{ border-left-color: var(--killed); }}
-        .mutant-item.survived {{ border-left-color: var(--survived); }}
-        .mutant-item.timeout {{ border-left-color: var(--timeout); }}
-
-        .mutant-status {{
-            font-size: 1.25rem;
-            width: 2rem;
-            text-align: center;
-        }}
-
-        .mutant-details {{
-            flex: 1;
-        }}
-
-        .mutant-location {{
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.25rem;
-        }}
-
-        .mutant-description {{
-            font-size: 0.9rem;
-        }}
-
-        .mutant-code {{
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
-            padding: 0.75rem;
-            background: var(--bg-primary);
-            border-radius: 0.5rem;
-            overflow-x: auto;
-        }}
-
-        .code-original {{
-            color: var(--survived);
-            text-decoration: line-through;
-            opacity: 0.7;
-        }}
-
-        .code-replacement {{
-            color: var(--killed);
-        }}
-
-        /* Summary Footer */
-        .footer {{
-            margin-top: 3rem;
-            padding: 1.5rem;
-            background: var(--bg-secondary);
-            border-radius: 1rem;
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }}
-
-        .footer a {{
-            color: var(--accent-primary);
-            text-decoration: none;
-        }}
-
-        .footer a:hover {{
-            text-decoration: underline;
-        }}
-
-        /* Filter Controls */
-        .filter-controls {{
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-            padding: 1rem 1.5rem;
-            background: var(--bg-secondary);
-            border-radius: 1rem;
-            border: 1px solid rgba(255,255,255,0.1);
-        }}
-
-        .filter-label {{
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }}
-
-        .filter-checkbox {{
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            user-select: none;
-        }}
-
-        .filter-checkbox input {{
-            width: 1.25rem;
-            height: 1.25rem;
-            accent-color: var(--accent-primary);
-            cursor: pointer;
-        }}
-
-        .filter-checkbox span {{
-            font-size: 0.9rem;
-            color: var(--text-primary);
-        }}
-
-        .mutant-item.hidden {{
-            display: none;
-        }}
-
-        .file-card.all-hidden {{
-            display: none;
-        }}
-
-        /* Responsive */
-        @media (max-width: 768px) {{
-            .score-card {{
-                grid-template-columns: 1fr;
-            }}
-
-            .score-value {{
-                font-size: 3.5rem;
-            }}
-
-            .stats-grid {{
-                grid-template-columns: repeat(2, 1fr);
-            }}
-
-            .filter-controls {{
-                flex-direction: column;
-                align-items: flex-start;
-            }}
-        }}
+{report_css}
     </style>
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <div class="logo">🧬 Dart Mutant</div>
+            <div class="logo">
+                <span class="logo-icon">🧬</span>
+                <span>Dart Mutant</span>
+            </div>
             <p class="tagline">AST-Powered Mutation Testing for Dart</p>
         </header>
 
         <div class="score-card">
             <div class="score-display">
                 <div class="score-label">Mutation Score</div>
-                <div class="score-value">{score:.0}%</div>
+                <div class="score-value {score_class}">{score:.0}%</div>
                 <div class="score-bar">
-                    <div class="score-bar-fill" style="width: {score}%"></div>
+                    <div class="score-bar-fill {score_class}" style="width: {score}%"></div>
                 </div>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card stat-total">
-                    <div class="stat-value" style="color: var(--text-primary)">{total}</div>
+                    <div class="stat-value">{total}</div>
                     <div class="stat-label">Total Mutants</div>
                 </div>
                 <div class="stat-card stat-killed">
@@ -655,8 +292,9 @@ fn generate_html_content(result: &MutationResult, file_stats: &[FileStats], tota
     </script>
 </body>
 </html>"#,
+        report_css = report_css,
         score = result.mutation_score,
-        score_color = score_color,
+        score_class = score_class,
         total = result.total,
         killed = result.killed,
         survived = result.survived,
@@ -746,10 +384,7 @@ pub fn generate_json_report(
 ) -> Result<()> {
     let report = JsonReport {
         schema_version: "1".to_string(),
-        thresholds: Thresholds {
-            high: 80,
-            low: 60,
-        },
+        thresholds: Thresholds { high: 80, low: 60 },
         files: generate_json_files(test_results),
         project_root: std::env::current_dir()
             .map(|p| p.display().to_string())
@@ -871,12 +506,24 @@ pub fn generate_ai_report(
     // Header with summary
     report.push_str("# Mutation Testing Report (AI-Optimized)\n\n");
     report.push_str("## Summary\n\n");
-    report.push_str(&format!("- **Mutation Score**: {:.1}%\n", result.mutation_score));
-    report.push_str(&format!("- **Total Mutants**: {}\n", result.total));
-    report.push_str(&format!("- **Killed**: {} (tests caught the bug)\n", result.killed));
-    report.push_str(&format!("- **Survived**: {} (tests missed the bug)\n", result.survived));
-    report.push_str(&format!("- **Timeout**: {}\n", result.timeout));
-    report.push_str(&format!("- **Errors**: {}\n\n", result.errors));
+    let _ = writeln!(
+        report,
+        "- **Mutation Score**: {:.1}%",
+        result.mutation_score
+    );
+    let _ = writeln!(report, "- **Total Mutants**: {}", result.total);
+    let _ = writeln!(
+        report,
+        "- **Killed**: {} (tests caught the bug)",
+        result.killed
+    );
+    let _ = writeln!(
+        report,
+        "- **Survived**: {} (tests missed the bug)",
+        result.survived
+    );
+    let _ = writeln!(report, "- **Timeout**: {}", result.timeout);
+    let _ = writeln!(report, "- **Errors**: {}\n", result.errors);
 
     // Group survived mutants by file
     let mut survived_by_file: HashMap<String, Vec<&MutantTestResult>> = HashMap::new();
@@ -899,18 +546,22 @@ pub fn generate_ai_report(
         files.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
 
         for (file, mutants) in files {
-            report.push_str(&format!("### {}\n\n", file));
-            report.push_str(&format!("{} surviving mutant(s)\n\n", mutants.len()));
+            let _ = writeln!(report, "### {}\n", file);
+            let _ = writeln!(report, "{} surviving mutant(s)\n", mutants.len());
 
             for mutant in mutants {
                 let m = &mutant.mutation;
-                report.push_str(&format!("#### Line {}:{}\n\n", m.location.start_line, m.location.start_col));
-                report.push_str(&format!("**Mutation**: `{}` → `{}`\n\n", m.original, m.mutated));
-                report.push_str(&format!("**Operator**: {}\n\n", m.operator.name()));
+                let _ = writeln!(
+                    report,
+                    "#### Line {}:{}\n",
+                    m.location.start_line, m.location.start_col
+                );
+                let _ = writeln!(report, "**Mutation**: `{}` → `{}`\n", m.original, m.mutated);
+                let _ = writeln!(report, "**Operator**: {}\n", m.operator.name());
 
                 // Generate test hint based on operator
                 let test_hint = generate_test_hint(&m.operator, &m.original, &m.mutated);
-                report.push_str(&format!("**Suggested Test**: {}\n\n", test_hint));
+                let _ = writeln!(report, "**Suggested Test**: {}\n", test_hint);
 
                 report.push_str("---\n\n");
             }
@@ -923,13 +574,14 @@ pub fn generate_ai_report(
         report.push_str("```\n");
         for (file, mutants) in &survived_by_file {
             for mutant in mutants {
-                report.push_str(&format!(
-                    "{}:{}  # {} → {}\n",
+                let _ = writeln!(
+                    report,
+                    "{}:{}  # {} → {}",
                     file,
                     mutant.mutation.location.start_line,
                     mutant.mutation.original,
                     mutant.mutation.mutated
-                ));
+                );
             }
         }
         report.push_str("```\n");
@@ -947,41 +599,52 @@ fn generate_test_hint(
     original: &str,
     mutated: &str,
 ) -> String {
-    use crate::mutation::MutationOperator::*;
+    use crate::mutation::MutationOperator;
 
     match operator {
         // Arithmetic
-        Arithmetic | ArithmeticAddToSub | ArithmeticSubToAdd => {
+        MutationOperator::Arithmetic
+        | MutationOperator::ArithmeticAddToSub
+        | MutationOperator::ArithmeticSubToAdd => {
             format!(
                 "Add a test that verifies the arithmetic result. If `{}` changed to `{}`, \
                 test with values where addition vs subtraction gives different results (e.g., non-zero operands).",
                 original, mutated
             )
         }
-        ArithmeticMulToDiv | ArithmeticDivToMul => {
+        MutationOperator::ArithmeticMulToDiv | MutationOperator::ArithmeticDivToMul => {
             format!(
                 "Test with values where `{}` vs `{}` produce different results. \
                 Avoid values like 1 or 0 that may give same result for both operations.",
                 original, mutated
             )
         }
-        ArithmeticModToMul => {
-            "Test modulo operation with values that produce a remainder (not evenly divisible).".to_string()
+        MutationOperator::ArithmeticModToMul => {
+            "Test modulo operation with values that produce a remainder (not evenly divisible)."
+                .to_string()
         }
 
         // Comparison
-        Comparison | ComparisonLtToLte | ComparisonLteToLt | ComparisonGtToGte | ComparisonGteToGt => {
+        MutationOperator::Comparison
+        | MutationOperator::ComparisonLtToLte
+        | MutationOperator::ComparisonLteToLt
+        | MutationOperator::ComparisonGtToGte
+        | MutationOperator::ComparisonGteToGt => {
             format!(
                 "Add a boundary test. Test with exact boundary value where `{}` vs `{}` differ. \
                 If testing `<` vs `<=`, use the exact boundary value.",
                 original, mutated
             )
         }
-        ComparisonLtToGt | ComparisonLteToGte | ComparisonGtToLt | ComparisonGteToLte => {
+        MutationOperator::ComparisonLtToGt
+        | MutationOperator::ComparisonLteToGte
+        | MutationOperator::ComparisonGtToLt
+        | MutationOperator::ComparisonGteToLte => {
             "Add tests for values on both sides of the comparison. \
-            Test with value less than, equal to, and greater than the boundary.".to_string()
+            Test with value less than, equal to, and greater than the boundary."
+                .to_string()
         }
-        ComparisonEqToNeq | ComparisonNeqToEq => {
+        MutationOperator::ComparisonEqToNeq | MutationOperator::ComparisonNeqToEq => {
             format!(
                 "Test both equality and inequality. If `{}` → `{}`, ensure tests verify \
                 both the equal case AND the not-equal case.",
@@ -990,17 +653,23 @@ fn generate_test_hint(
         }
 
         // Logical
-        Logical | LogicalAndToOr | LogicalOrToAnd => {
+        MutationOperator::Logical
+        | MutationOperator::LogicalAndToOr
+        | MutationOperator::LogicalOrToAnd => {
             "Test all combinations of boolean conditions. For `&&` vs `||`, test cases where \
-            one condition is true and the other is false.".to_string()
+            one condition is true and the other is false."
+                .to_string()
         }
-        LogicalNotRemoval => {
+        MutationOperator::LogicalNotRemoval => {
             "Add tests for both true and false outcomes of the negated expression. \
-            Ensure the test fails when negation is removed.".to_string()
+            Ensure the test fails when negation is removed."
+                .to_string()
         }
 
         // Boolean
-        Boolean | BooleanTrueToFalse | BooleanFalseToTrue => {
+        MutationOperator::Boolean
+        | MutationOperator::BooleanTrueToFalse
+        | MutationOperator::BooleanFalseToTrue => {
             format!(
                 "The boolean `{}` was changed to `{}`. Add a test that \
                 explicitly checks this boolean's effect on behavior.",
@@ -1009,68 +678,91 @@ fn generate_test_hint(
         }
 
         // Unary
-        Unary | UnaryIncrementToDecrement | UnaryDecrementToIncrement => {
+        MutationOperator::Unary
+        | MutationOperator::UnaryIncrementToDecrement
+        | MutationOperator::UnaryDecrementToIncrement => {
             "Test that the value changes in the expected direction. \
-            Verify increment increases and decrement decreases.".to_string()
+            Verify increment increases and decrement decreases."
+                .to_string()
         }
-        UnaryMinusRemoval | UnaryPlusMinus => {
-            "Test with positive and negative values to ensure sign is handled correctly.".to_string()
+        MutationOperator::UnaryMinusRemoval | MutationOperator::UnaryPlusMinus => {
+            "Test with positive and negative values to ensure sign is handled correctly."
+                .to_string()
         }
-        UnaryPreToPost | UnaryPostToPre => {
+        MutationOperator::UnaryPreToPost | MutationOperator::UnaryPostToPre => {
             "Test that uses the return value of the increment/decrement expression. \
-            Pre vs post increment differ in what value is returned.".to_string()
+            Pre vs post increment differ in what value is returned."
+                .to_string()
         }
 
         // Null Safety
-        NullSafety | NullCoalescingRemoval => {
+        MutationOperator::NullSafety | MutationOperator::NullCoalescingRemoval => {
             "Test with null input to verify the fallback value is used. \
-            The `??` operator's right side should be tested.".to_string()
+            The `??` operator's right side should be tested."
+                .to_string()
         }
-        NullAwareAccessRemoval => {
+        MutationOperator::NullAwareAccessRemoval => {
             "Test with null object to ensure null-safe access (`?.`) prevents crash. \
-            Verify behavior when the object is null vs non-null.".to_string()
+            Verify behavior when the object is null vs non-null."
+                .to_string()
         }
-        NullAssertionRemoval => {
+        MutationOperator::NullAssertionRemoval => {
             "Test with non-null values to ensure assertion (`!`) behavior is correct.".to_string()
         }
-        NullCheckToTrue | NullCheckToFalse => {
-            "Test with both null and non-null values to verify null check works correctly.".to_string()
+        MutationOperator::NullCheckToTrue | MutationOperator::NullCheckToFalse => {
+            "Test with both null and non-null values to verify null check works correctly."
+                .to_string()
         }
 
         // String
-        String | StringEmptyToNonEmpty | StringNonEmptyToEmpty => {
-            "Test with both empty and non-empty strings. Verify behavior differs appropriately.".to_string()
+        MutationOperator::String
+        | MutationOperator::StringEmptyToNonEmpty
+        | MutationOperator::StringNonEmptyToEmpty => {
+            "Test with both empty and non-empty strings. Verify behavior differs appropriately."
+                .to_string()
         }
 
         // Control Flow
-        Conditional | ControlFlowIfConditionTrue | ControlFlowIfConditionFalse => {
+        MutationOperator::Conditional
+        | MutationOperator::ControlFlowIfConditionTrue
+        | MutationOperator::ControlFlowIfConditionFalse => {
             "Add tests that exercise both branches of the if statement. \
-            Ensure tests verify behavior when condition is true AND when false.".to_string()
+            Ensure tests verify behavior when condition is true AND when false."
+                .to_string()
         }
-        ControlFlowRemoveElse => {
-            "Test the else branch explicitly. Verify behavior when the if condition is false.".to_string()
+        MutationOperator::ControlFlowRemoveElse => {
+            "Test the else branch explicitly. Verify behavior when the if condition is false."
+                .to_string()
         }
-        ControlFlowBreakRemoval | ControlFlowContinueRemoval => {
-            "Test loop termination/continuation. Verify the loop stops or continues at the right time.".to_string()
+        MutationOperator::ControlFlowBreakRemoval
+        | MutationOperator::ControlFlowContinueRemoval => {
+            "Test loop termination/continuation. Verify the loop stops or continues at the right time."
+                .to_string()
         }
-        ControlFlowReturnRemoval => {
-            "Test early return conditions. Verify function returns expected value at the return point.".to_string()
+        MutationOperator::ControlFlowReturnRemoval => {
+            "Test early return conditions. Verify function returns expected value at the return point."
+                .to_string()
         }
 
         // Collection
-        Collection | CollectionEmptyCheck | CollectionNotEmptyCheck => {
+        MutationOperator::Collection
+        | MutationOperator::CollectionEmptyCheck
+        | MutationOperator::CollectionNotEmptyCheck => {
             "Test with empty collection AND non-empty collection. \
-            Verify isEmpty/isNotEmpty checks affect behavior.".to_string()
+            Verify isEmpty/isNotEmpty checks affect behavior."
+                .to_string()
         }
-        CollectionFirstToLast | CollectionLastToFirst => {
+        MutationOperator::CollectionFirstToLast | MutationOperator::CollectionLastToFirst => {
             "Test with collection having different first and last elements. \
-            Verify correct element is accessed.".to_string()
+            Verify correct element is accessed."
+                .to_string()
         }
-        CollectionAddRemoval => {
-            "Verify the collection modification occurs. Test that add() actually adds the element.".to_string()
+        MutationOperator::CollectionAddRemoval => {
+            "Verify the collection modification occurs. Test that add() actually adds the element."
+                .to_string()
         }
 
-        // Other
+        // Other - catch-all for any other operators
         _ => format!(
             "Add a test that verifies the behavior changes when `{}` is replaced with `{}`.",
             original, mutated

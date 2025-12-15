@@ -272,6 +272,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "similar",
+ "tempfile",
  "thiserror",
  "tokio",
  "tracing",

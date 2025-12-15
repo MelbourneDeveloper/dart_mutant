@@ -1,3 +1,6 @@
+// Allow panics and expects in test code - tests need to fail loudly
+#![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
 //! High-level integration tests for dart_mutant
 //!
 //! These tests verify the ENTIRE mutation testing pipeline works correctly:
@@ -12,9 +15,9 @@
 //! race conditions when mutation tests modify files.
 
 use serial_test::serial;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::fs;
 
 /// Get the path to the test fixtures directory
 fn fixtures_dir() -> PathBuf {
@@ -78,8 +81,7 @@ mod mutation_discovery {
     #[test]
     fn test_fixture_files_contain_mutable_code() {
         let calculator_path = sample_project_dir().join("lib").join("calculator.dart");
-        let content = fs::read_to_string(&calculator_path)
-            .expect("Failed to read calculator.dart");
+        let content = fs::read_to_string(&calculator_path).expect("Failed to read calculator.dart");
 
         // Verify arithmetic operators exist (these should be mutated)
         assert!(content.contains(" + "), "Missing + operator");
@@ -366,8 +368,8 @@ mod report_tests {
   "mutationScore": 75.0
 }"#;
 
-        let parsed: serde_json::Value = serde_json::from_str(sample_json)
-            .expect("JSON should be valid");
+        let parsed: serde_json::Value =
+            serde_json::from_str(sample_json).expect("JSON should be valid");
 
         assert_eq!(parsed["schemaVersion"], "1");
         assert_eq!(parsed["thresholds"]["high"], 80);
@@ -414,8 +416,7 @@ mod mutation_operator_tests {
     #[test]
     fn test_calculator_has_many_mutation_opportunities() {
         let calculator_path = sample_project_dir().join("lib").join("calculator.dart");
-        let content = fs::read_to_string(&calculator_path)
-            .expect("Failed to read calculator.dart");
+        let content = fs::read_to_string(&calculator_path).expect("Failed to read calculator.dart");
 
         let mutation_count = count_potential_mutations(&content);
 
@@ -429,8 +430,7 @@ mod mutation_operator_tests {
     #[test]
     fn test_string_utils_has_mutation_opportunities() {
         let path = sample_project_dir().join("lib").join("string_utils.dart");
-        let content = fs::read_to_string(&path)
-            .expect("Failed to read string_utils.dart");
+        let content = fs::read_to_string(&path).expect("Failed to read string_utils.dart");
 
         let mutation_count = count_potential_mutations(&content);
 
@@ -443,14 +443,16 @@ mod mutation_operator_tests {
 
     #[test]
     fn test_null_safety_has_null_operator_mutations() {
-        let path = sample_project_dir().join("lib").join("null_safety_examples.dart");
-        let content = fs::read_to_string(&path)
-            .expect("Failed to read null_safety_examples.dart");
+        let path = sample_project_dir()
+            .join("lib")
+            .join("null_safety_examples.dart");
+        let content = fs::read_to_string(&path).expect("Failed to read null_safety_examples.dart");
 
         // Count null safety specific operators
         let null_aware_count = content.matches("?.").count();
         let null_coalescing_count = content.matches("??").count();
-        let null_check_count = content.matches("!= null").count() + content.matches("== null").count();
+        let null_check_count =
+            content.matches("!= null").count() + content.matches("== null").count();
 
         assert!(
             null_aware_count >= 1,
@@ -486,8 +488,7 @@ mod compile_error_tests {
 
     /// Copy project to a temp directory to avoid race conditions between parallel tests
     fn copy_to_temp(project_dir: &Path, suffix: &str) -> PathBuf {
-        let temp_dir = std::env::temp_dir()
-            .join(format!("dart_mutant_test_{}", suffix));
+        let temp_dir = std::env::temp_dir().join(format!("dart_mutant_test_{}", suffix));
 
         // Clean and create temp dir
         drop(fs::remove_dir_all(&temp_dir));
@@ -537,13 +538,14 @@ mod compile_error_tests {
 
         // Check for actual compile errors (not just the word "error" in the project name)
         // dart analyze shows errors like "error - lib/file.dart:10:5 - message - code"
-        let has_compile_errors = stdout.contains("error -") || stderr.contains("error -") ||
-                                 stdout.contains("Error:") || stderr.contains("Error:");
+        let has_compile_errors = stdout.contains("error -")
+            || stderr.contains("error -")
+            || stdout.contains("Error:")
+            || stderr.contains("Error:");
         assert!(
             !has_compile_errors,
             "Original code should compile without errors.\nStdout: {}\nStderr: {}",
-            stdout,
-            stderr
+            stdout, stderr
         );
     }
 
@@ -562,8 +564,8 @@ mod compile_error_tests {
 
         // Read original file from temp
         let file_path = temp_dir.join("lib").join("type_sensitive.dart");
-        let original_content = fs::read_to_string(&file_path)
-            .expect("Failed to read type_sensitive.dart");
+        let original_content =
+            fs::read_to_string(&file_path).expect("Failed to read type_sensitive.dart");
 
         // Apply mutation: change `return a + b;` to `return a - b;` for string concatenation
         let mutated_content = original_content.replacen("return a + b;", "return a - b;", 1);
@@ -607,13 +609,13 @@ mod compile_error_tests {
         ensure_dart_deps(&temp_dir);
 
         let file_path = temp_dir.join("lib").join("type_sensitive.dart");
-        let original_content = fs::read_to_string(&file_path)
-            .expect("Failed to read type_sensitive.dart");
+        let original_content =
+            fs::read_to_string(&file_path).expect("Failed to read type_sensitive.dart");
 
         // Mutate the list concatenation
         let mutated_content = original_content.replace(
             "return a + b;  // Mutation: a - b -> COMPILE ERROR (can't subtract lists)",
-            "return a - b;  // Mutation: a - b -> COMPILE ERROR (can't subtract lists)"
+            "return a - b;  // Mutation: a - b -> COMPILE ERROR (can't subtract lists)",
         );
 
         fs::write(&file_path, &mutated_content).expect("Failed to write mutated file");
@@ -651,13 +653,13 @@ mod compile_error_tests {
         ensure_dart_deps(&temp_dir);
 
         let file_path = temp_dir.join("lib").join("type_sensitive.dart");
-        let original_content = fs::read_to_string(&file_path)
-            .expect("Failed to read type_sensitive.dart");
+        let original_content =
+            fs::read_to_string(&file_path).expect("Failed to read type_sensitive.dart");
 
         // Mutate a == b to a && b (can't use && on ints)
         let mutated_content = original_content.replace(
             "return a == b;  // Mutation: a && b -> COMPILE ERROR (can't && ints)",
-            "return a && b;  // Mutation: a && b -> COMPILE ERROR (can't && ints)"
+            "return a && b;  // Mutation: a && b -> COMPILE ERROR (can't && ints)",
         );
 
         fs::write(&file_path, &mutated_content).expect("Failed to write mutated file");
@@ -696,13 +698,13 @@ mod compile_error_tests {
         ensure_dart_deps(&temp_dir);
 
         let file_path = temp_dir.join("lib").join("type_sensitive.dart");
-        let original_content = fs::read_to_string(&file_path)
-            .expect("Failed to read type_sensitive.dart");
+        let original_content =
+            fs::read_to_string(&file_path).expect("Failed to read type_sensitive.dart");
 
         // Mutate int + int to int - int (this IS valid and should compile)
         let mutated_content = original_content.replace(
             "return a + b;  // Mutation to / would return double, causing type error",
-            "return a - b;  // Mutation to / would return double, causing type error"
+            "return a - b;  // Mutation to / would return double, causing type error",
         );
 
         fs::write(&file_path, &mutated_content).expect("Failed to write mutated file");
@@ -788,8 +790,7 @@ mod parser_tests {
         assert!(
             !has_errors,
             "Dart files should have no analyzer errors.\nStdout: {}\nStderr: {}",
-            stdout,
-            stderr
+            stdout, stderr
         );
     }
 }

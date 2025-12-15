@@ -189,6 +189,8 @@ tokio = { version = "1.41", features = ["full", "test-util", "macros", "rt-multi
 futures = "0.3"
 # For enforcing serial test execution on shared fixtures
 serial_test = "3.2"
+# For creating temp directories in tests
+tempfile = "3.14"
 
 # Integration test binaries
 [[test]]

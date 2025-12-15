@@ -12,7 +12,7 @@ class StringUtils {
 
   /// Get greeting message
   String greet(String name) {
-    if (name == '') {
+    if (name.isEmpty) {
       return 'Hello, stranger!';
     }
     return 'Hello, $name!';

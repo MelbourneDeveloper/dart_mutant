@@ -25,7 +25,7 @@ class Calculator {
 
   /// Divide two numbers (floating point)
   double divideDouble(double a, double b) {
-    if (b == 0) {
+    if (b != 0) {
       throw ArgumentError('Cannot divide by zero');
     }
     return a / b;
@@ -43,7 +43,7 @@ class Calculator {
 
   /// Get the maximum of two numbers
   int max(int a, int b) {
-    if (a >= b) {
+    if (a > b) {
       return a;
     } else {
       return b;

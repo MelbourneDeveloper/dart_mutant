@@ -234,16 +234,16 @@ Full mutation tests can run overnight on a schedule:
 ```yaml
 on:
   schedule:
-    - cron: '0 2 * * *'  # 2 AM daily
+    - cron: '0 2 * * *' # 2 AM daily
 ```
 
 ## Output Formats
 
-| Format | Flag | Use Case |
-|--------|------|----------|
-| HTML | `--html` | Human-readable report |
-| JSON | `--json` | Stryker dashboard integration |
-| JUnit | `--junit` | CI test result integration |
+| Format | Flag      | Use Case                      |
+| ------ | --------- | ----------------------------- |
+| HTML   | `--html`  | Human-readable report         |
+| JSON   | `--json`  | Stryker dashboard integration |
+| JUnit  | `--junit` | CI test result integration    |
 
 ## Next Steps
 

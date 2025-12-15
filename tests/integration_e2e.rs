@@ -1,3 +1,6 @@
+// Allow panics and expects in test code - tests need to fail loudly
+#![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
 //! End-to-end integration tests for dart_mutant
 //!
 //! These tests verify the complete mutation testing pipeline:
@@ -8,6 +11,9 @@
 //! - Report generation
 //!
 //! These are HIGH-LEVEL tests that test the actual tool behavior.
+//!
+//! IMPORTANT: Tests that run actual mutations use COPIES of fixtures
+//! to prevent corrupting the original fixture files.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -42,6 +48,33 @@ fn dart_available() -> bool {
         .unwrap_or(false)
 }
 
+/// Copy fixtures to a temp directory to prevent mutation from corrupting originals.
+/// Returns the temp directory path (which will be automatically cleaned up on drop).
+fn copy_fixtures_to_temp() -> Option<tempfile::TempDir> {
+    let temp_dir = tempfile::tempdir().ok()?;
+    let source = fixtures_path();
+    let dest = temp_dir.path().join("simple_dart_project");
+
+    // Copy recursively using walkdir
+    for entry in walkdir::WalkDir::new(&source)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let rel_path = entry.path().strip_prefix(&source).ok()?;
+        let target = dest.join(rel_path);
+
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&target).ok()?;
+        } else {
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent).ok()?;
+            }
+            std::fs::copy(entry.path(), &target).ok()?;
+        }
+    }
+
+    Some(temp_dir)
+}
 
 mod cli_arguments {
     use super::*;
@@ -113,8 +146,8 @@ mod cli_arguments {
         let stderr = String::from_utf8_lossy(&output.stderr);
         // Either it runs or reports path not found - both are valid
         assert!(
-            !stderr.contains("error: unexpected argument") &&
-            !stderr.contains("error: Found argument"),
+            !stderr.contains("error: unexpected argument")
+                && !stderr.contains("error: Found argument"),
             "--path should be a valid argument"
         );
     }
@@ -165,7 +198,13 @@ mod cli_arguments {
         }
 
         let output = Command::new(binary_path())
-            .args(["--output", "/tmp/reports", "--dry-run", "--path", "/nonexistent"])
+            .args([
+                "--output",
+                "/tmp/reports",
+                "--dry-run",
+                "--path",
+                "/nonexistent",
+            ])
             .output()
             .expect("Failed to execute command");
 
@@ -185,10 +224,13 @@ mod cli_arguments {
 
         let output = Command::new(binary_path())
             .args([
-                "--exclude", "**/*.g.dart",
-                "--exclude", "**/*.freezed.dart",
+                "--exclude",
+                "**/*.g.dart",
+                "--exclude",
+                "**/*.freezed.dart",
                 "--dry-run",
-                "--path", "/nonexistent"
+                "--path",
+                "/nonexistent",
             ])
             .output()
             .expect("Failed to execute command");
@@ -201,7 +243,6 @@ mod cli_arguments {
     }
 }
 
-
 mod file_discovery_e2e {
     use super::*;
 
@@ -210,15 +251,14 @@ mod file_discovery_e2e {
         let lib = fixtures_path().join("lib");
         assert!(lib.exists(), "Test fixtures lib directory should exist");
 
-        let dart_files: Vec<_> = walkdir::WalkDir::new(&lib)
+        let dart_file_count = walkdir::WalkDir::new(&lib)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().map_or(false, |ext| ext == "dart"))
-            .collect();
+            .count();
 
         assert_eq!(
-            dart_files.len(),
-            4,
+            dart_file_count, 4,
             "Should find exactly 4 Dart files in fixtures/lib"
         );
     }
@@ -239,12 +279,10 @@ mod file_discovery_e2e {
             .expect("Should load Dart grammar");
 
         for file in dart_files {
-            let source = std::fs::read_to_string(&file)
-                .unwrap_or_else(|_| panic!("Should read {:?}", file));
+            let source =
+                std::fs::read_to_string(&file).unwrap_or_else(|_| panic!("Should read {:?}", file));
 
-            let tree = parser
-                .parse(&source, None)
-                .expect("Should parse");
+            let tree = parser.parse(&source, None).expect("Should parse");
 
             assert!(
                 !tree.root_node().has_error(),
@@ -254,7 +292,6 @@ mod file_discovery_e2e {
         }
     }
 }
-
 
 mod mutation_generation_e2e {
     use super::*;
@@ -326,12 +363,27 @@ mod mutation_generation_e2e {
         assert!(source.contains(" + "), "Should have addition");
         assert!(source.contains(" - "), "Should have subtraction");
         assert!(source.contains(" * "), "Should have multiplication");
-        assert!(source.contains("~/") || source.contains(" / "), "Should have division");
-        assert!(source.contains(" > ") || source.contains(" >= "), "Should have greater than");
-        assert!(source.contains(" < ") || source.contains(" <= "), "Should have less than");
+        assert!(
+            source.contains("~/") || source.contains(" / "),
+            "Should have division"
+        );
+        assert!(
+            source.contains(" > ") || source.contains(" >= "),
+            "Should have greater than"
+        );
+        assert!(
+            source.contains(" < ") || source.contains(" <= "),
+            "Should have less than"
+        );
         assert!(source.contains(" == "), "Should have equality");
-        assert!(source.contains("if (") || source.contains("if("), "Should have if statement");
-        assert!(source.contains("++") || source.contains("--"), "Should have increment/decrement");
+        assert!(
+            source.contains("if (") || source.contains("if("),
+            "Should have if statement"
+        );
+        assert!(
+            source.contains("++") || source.contains("--"),
+            "Should have increment/decrement"
+        );
     }
 
     #[test]
@@ -349,7 +401,6 @@ mod mutation_generation_e2e {
     }
 }
 
-
 mod full_pipeline_e2e {
     use super::*;
 
@@ -361,10 +412,7 @@ mod full_pipeline_e2e {
         }
 
         let output = Command::new(binary_path())
-            .args([
-                "--path", fixtures_path().to_str().unwrap(),
-                "--dry-run",
-            ])
+            .args(["--path", fixtures_path().to_str().unwrap(), "--dry-run"])
             .output()
             .expect("Failed to execute command");
 
@@ -388,10 +436,17 @@ mod full_pipeline_e2e {
             return;
         }
 
-        // First, run dart pub get
+        // IMPORTANT: Copy fixtures to temp dir to prevent corruption during mutation testing
+        let Some(temp_fixtures) = copy_fixtures_to_temp() else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let project_path = temp_fixtures.path().join("simple_dart_project");
+
+        // Run dart pub get on the COPY
         let pub_get = Command::new("dart")
             .args(["pub", "get"])
-            .current_dir(fixtures_path())
+            .current_dir(&project_path)
             .output();
 
         if pub_get.is_err() || !pub_get.unwrap().status.success() {
@@ -404,12 +459,16 @@ mod full_pipeline_e2e {
 
         let output = Command::new(binary_path())
             .args([
-                "--path", fixtures_path().to_str().unwrap(),
-                "--output", temp_output.to_str().unwrap(),
+                "--path",
+                project_path.to_str().unwrap(),
+                "--output",
+                temp_output.to_str().unwrap(),
                 "--html",
                 "--json",
-                "--sample", "5", // Only test 5 mutations for speed
-                "--timeout", "10",
+                "--sample",
+                "5", // Only test 5 mutations for speed
+                "--timeout",
+                "10",
             ])
             .output()
             .expect("Failed to execute command");
@@ -440,7 +499,7 @@ mod full_pipeline_e2e {
             );
         }
 
-        // Cleanup
+        // Cleanup (temp_fixtures auto-cleans on drop, but output dir needs manual cleanup)
         std::fs::remove_dir_all(&temp_output).ok();
     }
 
@@ -451,10 +510,17 @@ mod full_pipeline_e2e {
             return;
         }
 
-        // First, run dart pub get
+        // IMPORTANT: Copy fixtures to temp dir to prevent corruption during mutation testing
+        let Some(temp_fixtures) = copy_fixtures_to_temp() else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let project_path = temp_fixtures.path().join("simple_dart_project");
+
+        // Run dart pub get on the COPY
         let pub_get = Command::new("dart")
             .args(["pub", "get"])
-            .current_dir(fixtures_path())
+            .current_dir(&project_path)
             .output();
 
         if pub_get.is_err() || !pub_get.unwrap().status.success() {
@@ -467,11 +533,15 @@ mod full_pipeline_e2e {
 
         let output = Command::new(binary_path())
             .args([
-                "--path", fixtures_path().to_str().unwrap(),
-                "--output", temp_output.to_str().unwrap(),
+                "--path",
+                project_path.to_str().unwrap(),
+                "--output",
+                temp_output.to_str().unwrap(),
                 "--ai-report",
-                "--sample", "3", // Only test 3 mutations for speed
-                "--timeout", "10",
+                "--sample",
+                "3", // Only test 3 mutations for speed
+                "--timeout",
+                "10",
             ])
             .output()
             .expect("Failed to execute command");
@@ -523,11 +593,10 @@ mod full_pipeline_e2e {
             println!("AI report not generated (possibly no mutations tested)");
         }
 
-        // Cleanup
+        // Cleanup (temp_fixtures auto-cleans on drop)
         std::fs::remove_dir_all(&temp_output).ok();
     }
 }
-
 
 mod threshold_behavior {
     #[test]
@@ -541,31 +610,24 @@ mod threshold_behavior {
             assert!(
                 passes,
                 "Score {} should pass threshold {}",
-                score,
-                threshold
+                score, threshold
             );
         }
     }
 
     #[test]
     fn threshold_80_requires_high_score() {
-        let threshold = 80.0;
+        let threshold = 80.0_f64;
 
         assert!(80.0 >= threshold, "80% should pass 80% threshold");
         assert!(100.0 >= threshold, "100% should pass 80% threshold");
-        assert!(!(79.9 >= threshold), "79.9% should fail 80% threshold");
-        assert!(!(50.0 >= threshold), "50% should fail 80% threshold");
+        assert!(79.9 < threshold, "79.9% should fail 80% threshold");
+        assert!(50.0 < threshold, "50% should fail 80% threshold");
     }
 
     #[test]
     fn threshold_determines_exit_code() {
-        let determine_exit = |score: f64, threshold: f64| -> i32 {
-            if score >= threshold {
-                0 // Success
-            } else {
-                1 // Failure
-            }
-        };
+        let determine_exit = |score: f64, threshold: f64| -> i32 { i32::from(score < threshold) };
 
         assert_eq!(determine_exit(100.0, 80.0), 0);
         assert_eq!(determine_exit(80.0, 80.0), 0);
@@ -573,7 +635,6 @@ mod threshold_behavior {
         assert_eq!(determine_exit(0.0, 0.0), 0);
     }
 }
-
 
 mod output_format_e2e {
     #[test]
