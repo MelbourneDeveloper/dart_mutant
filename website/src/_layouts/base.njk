@@ -31,7 +31,7 @@
     />
 
     <!-- Styles -->
-    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="{{ '/css/style.css' | url }}" />
 
     <!-- Favicon -->
     <link
@@ -43,7 +43,7 @@
     <!-- Navigation -->
     <nav class="nav">
       <div class="container nav-inner">
-        <a href="/" class="nav-logo">
+        <a href="{{ '/' | url }}" class="nav-logo">
           <span class="nav-logo-icon">🧬</span>
           <span>dart_mutant</span>
         </a>
@@ -57,12 +57,12 @@
         </button>
 
         <ul class="nav-links">
-          <li><a href="/docs/" class="nav-link">Docs</a></li>
-          <li><a href="/docs/operators/" class="nav-link">Operators</a></li>
-          <li><a href="/docs/ci/" class="nav-link">CI/CD</a></li>
+          <li><a href="{{ '/docs/' | url }}" class="nav-link">Docs</a></li>
+          <li><a href="{{ '/docs/operators/' | url }}" class="nav-link">Operators</a></li>
+          <li><a href="{{ '/docs/ci/' | url }}" class="nav-link">CI/CD</a></li>
           <li>
             <a
-              href="https://github.com/user/dart_mutant"
+              href="https://github.com/MelbourneDeveloper/dart_mutant"
               class="nav-cta"
               target="_blank"
               rel="noopener"
@@ -88,21 +88,21 @@
         <div class="footer-inner">
           <div class="footer-logo">🧬 dart_mutant</div>
           <ul class="footer-links">
-            <li><a href="/docs/" class="footer-link">Documentation</a></li>
+            <li><a href="{{ '/docs/' | url }}" class="footer-link">Documentation</a></li>
             <li>
-              <a href="https://github.com/user/dart_mutant" class="footer-link" target="_blank"
+              <a href="https://github.com/MelbourneDeveloper/dart_mutant" class="footer-link" target="_blank"
                 >GitHub</a
               >
             </li>
             <li>
               <a
-                href="https://github.com/user/dart_mutant/issues"
+                href="https://github.com/MelbourneDeveloper/dart_mutant/issues"
                 class="footer-link"
                 target="_blank"
                 >Issues</a
               >
             </li>
-            <li><a href="/docs/contributing/" class="footer-link">Contributing</a></li>
+            <li><a href="{{ '/docs/contributing/' | url }}" class="footer-link">Contributing</a></li>
           </ul>
         </div>
         <p class="footer-copy">
@@ -111,6 +111,6 @@
       </div>
     </footer>
 
-    <script src="/js/main.js" defer></script>
+    <script src="{{ '/js/main.js' | url }}" defer></script>
   </body>
 </html>

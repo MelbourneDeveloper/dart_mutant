@@ -8,6 +8,15 @@ module.exports = function(eleventyConfig) {
   // Watch CSS files for changes
   eleventyConfig.addWatchTarget("src/css/");
 
+  // Add url filter for path prefix support
+  const pathPrefix = process.env.ELEVENTY_PATH_PREFIX || "/";
+  eleventyConfig.addFilter("url", function(url) {
+    if (url.startsWith("/")) {
+      return pathPrefix.replace(/\/$/, "") + url;
+    }
+    return url;
+  });
+
   return {
     dir: {
       input: "src",
@@ -18,6 +27,7 @@ module.exports = function(eleventyConfig) {
     },
     templateFormats: ["njk", "md", "html"],
     htmlTemplateEngine: "njk",
-    markdownTemplateEngine: "njk"
+    markdownTemplateEngine: "njk",
+    pathPrefix: pathPrefix
   };
 };
