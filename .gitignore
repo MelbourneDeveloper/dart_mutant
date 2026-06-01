@@ -6,3 +6,6 @@ _site/
 node_modules/
 .commandtree/
 .playwright-mcp/
+
+
+.deslop-cache/

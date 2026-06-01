@@ -19,6 +19,13 @@ use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // deploy-toolkit --version contract: must run BEFORE clap parsing so the
+    // plain form emits exactly `<bin> <semver>\n` with no banner/logging.
+    // See deployment-toolkit.json and `deployment_toolkit/schemas/version-manifest.schema.json`.
+    if handle_version_contract() {
+        return Ok(());
+    }
+
     // Initialize logging
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -45,6 +52,37 @@ async fn main() -> Result<()> {
     } else {
         std::process::exit(1);
     }
+}
+
+/// deploy-toolkit `--version` contract.
+///
+/// Returns `true` when a version flag was handled; the caller should exit 0.
+/// TODO: once `deploy-toolkit-cli` is published on crates.io, replace this
+/// body with `deploy_toolkit_cli::dispatch(...)`.
+fn handle_version_contract() -> bool {
+    let mut has_version = false;
+    let mut has_json = false;
+    for a in std::env::args().skip(1) {
+        match a.as_str() {
+            "--version" | "-V" => has_version = true,
+            "--json" => has_json = true,
+            _ => {}
+        }
+    }
+    if !has_version {
+        return false;
+    }
+    let name = env!("CARGO_PKG_NAME");
+    let version = env!("CARGO_PKG_VERSION");
+    if has_json {
+        let json = format!(
+            "{{\"manifestVersion\":1,\"name\":\"{name}\",\"version\":\"{version}\",\"kind\":\"cli\",\"language\":\"rust\",\"product\":\"dart-mutant\"}}"
+        );
+        println!("{json}");
+    } else {
+        println!("{name} {version}");
+    }
+    true
 }
 
 fn print_banner() {
