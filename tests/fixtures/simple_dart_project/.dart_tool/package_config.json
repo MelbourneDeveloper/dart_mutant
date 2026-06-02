@@ -291,8 +291,8 @@
     }
   ],
   "generator": "pub",
-  "generatorVersion": "3.11.4",
+  "generatorVersion": "3.12.0",
   "flutterRoot": "file:///opt/homebrew/Caskroom/flutter/3.27.2/flutter",
-  "flutterVersion": "3.41.6",
+  "flutterVersion": "3.44.0",
   "pubCache": "file:///Users/christianfindlay/.pub-cache"
 }

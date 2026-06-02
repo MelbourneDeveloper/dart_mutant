@@ -1,0 +1,9 @@
+name: red_baseline_project
+description: Fixture whose unit tests fail on UNMUTATED code (a "red baseline"), used to verify dart_mutant refuses to run instead of falsely reporting every mutant as killed. See GitHub issue #5.
+version: 1.0.0
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dev_dependencies:
+  test: ^1.24.0

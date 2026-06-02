@@ -48,8 +48,7 @@ fn dart_available() -> bool {
     Command::new("dart")
         .arg("--version")
         .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+        .is_ok_and(|o| o.status.success())
 }
 
 // ============================================================================

@@ -349,9 +349,7 @@ mod timeout_handling {
 mod parallel_execution {
     #[test]
     fn parallel_job_count_is_reasonable() {
-        let cpu_count = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4);
+        let cpu_count = std::thread::available_parallelism().map_or(4, |n| n.get());
 
         assert!(cpu_count >= 1, "Should have at least 1 CPU");
 

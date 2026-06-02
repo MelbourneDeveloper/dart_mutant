@@ -16,6 +16,7 @@ use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use report::MutationResult;
 use std::time::Instant;
+use tracing::{info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,15 +27,9 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
-        .init();
-
     let args = Args::parse();
+
+    init_logging(args.verbose, args.quiet);
 
     print_banner();
 
@@ -52,6 +47,33 @@ async fn main() -> Result<()> {
     } else {
         std::process::exit(1);
     }
+}
+
+/// Initialize `tracing` output, mapping CLI flags to a default log level.
+///
+/// `--verbose` enables `dart_mutant` debug/trace output; `--quiet` drops to
+/// warnings only. An explicit `RUST_LOG` always overrides these defaults so
+/// power users can tune per-module verbosity. Logs go to stderr, leaving stdout
+/// for the report banner and progress bars.
+fn init_logging(verbose: bool, quiet: bool) {
+    use tracing_subscriber::EnvFilter;
+
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        let directives = if verbose {
+            "info,dart_mutant=trace"
+        } else if quiet {
+            "warn"
+        } else {
+            "info"
+        };
+        EnvFilter::new(directives)
+    });
+
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(verbose)
+        .with_writer(std::io::stderr)
+        .init();
 }
 
 /// deploy-toolkit `--version` contract.
@@ -100,6 +122,12 @@ fn print_banner() {
 
 async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
     let multi_progress = MultiProgress::new();
+    info!(
+        path = %args.path.display(),
+        parallel = args.parallel,
+        timeout_secs = args.timeout,
+        "starting mutation testing run"
+    );
 
     // Step 1: Discover Dart files
     let discover_pb = create_spinner(&multi_progress, "Discovering Dart files...");
@@ -119,10 +147,19 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
     let mut all_mutations = Vec::new();
 
     for file in &dart_files {
-        let mutations = parser::parse_and_find_mutations(file)?;
-        all_mutations.extend(mutations);
+        match parser::parse_and_find_mutations(file) {
+            Ok(mutations) => all_mutations.extend(mutations),
+            Err(error) => {
+                warn!(file = %file.display(), %error, "failed to parse file, skipping");
+            }
+        }
         parse_pb.inc(1);
     }
+    info!(
+        files = dart_files.len(),
+        mutations = all_mutations.len(),
+        "parsing complete"
+    );
     parse_pb.finish_with_message(format!(
         "{} Generated {} mutations",
         "✓".green(),
@@ -157,6 +194,7 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
     }
 
     if all_mutations.is_empty() {
+        warn!("no mutations generated across all discovered files");
         println!(
             "\n{}",
             "No mutations generated. Your code might be too simple or already well-tested!"
@@ -167,10 +205,21 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
 
     // Apply sampling if requested
     let mutations_to_test = if let Some(sample_size) = args.sample {
-        mutation::sample_mutations(&all_mutations, sample_size)
+        let sampled = mutation::sample_mutations(&all_mutations, sample_size);
+        info!(
+            requested = sample_size,
+            sampled = sampled.len(),
+            total = all_mutations.len(),
+            "sampled mutations"
+        );
+        sampled
     } else {
         all_mutations.clone()
     };
+    info!(
+        count = mutations_to_test.len(),
+        "mutations selected for testing"
+    );
 
     // Step 3: Run mutation tests (or skip in dry-run mode)
     let results = if args.dry_run {
@@ -199,6 +248,10 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
         // Return empty results for dry run
         vec![]
     } else {
+        // Pre-flight: confirm the suite is green before mutating anything.
+        // A red baseline would make every mutant look "killed" (a false 100%).
+        verify_baseline_or_bail(&args.path, args.timeout, &multi_progress).await?;
+
         let test_pb = create_progress_bar(
             &multi_progress,
             mutations_to_test.len() as u64,
@@ -251,6 +304,34 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
     report_pb.finish_with_message(format!("{} Reports generated", "✓".green()));
 
     Ok(mutation_result)
+}
+
+/// Verify a green baseline before mutating, aborting the run if it is red.
+///
+/// Implements [RUNNER-BASELINE]: a failing unmutated suite makes every mutant
+/// appear killed, so we refuse to produce a (bogus) mutation score.
+async fn verify_baseline_or_bail(
+    path: &std::path::Path,
+    timeout: u64,
+    mp: &MultiProgress,
+) -> Result<()> {
+    let pb = create_spinner(mp, "Verifying baseline (running unmutated tests)...");
+    let status = runner::verify_baseline(path, timeout).await?;
+    match status {
+        runner::BaselineStatus::Passing => {
+            pb.finish_with_message(format!("{} Baseline passed", "✓".green()));
+            Ok(())
+        }
+        runner::BaselineStatus::Failing { details } => {
+            pb.finish_with_message(format!("{} Baseline failed", "✗".red()));
+            warn!("aborting: baseline test suite is red");
+            anyhow::bail!(
+                "Baseline test suite failed on unmutated code. Mutation results would be \
+                 meaningless (every mutant would look killed). Fix the failing tests first.\n\n{}",
+                details.trim()
+            )
+        }
+    }
 }
 
 fn create_spinner(mp: &MultiProgress, message: &str) -> ProgressBar {

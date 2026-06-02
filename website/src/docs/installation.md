@@ -52,12 +52,12 @@ Intel macOS and ARM Linux users should install [from source](#build-from-source)
 
 ```bash
 # macOS (Apple Silicon)
-VERSION=v0.1.0
+VERSION=v0.4.0
 curl -L "https://github.com/Nimblesite/dart_mutant/releases/download/${VERSION}/dart_mutant-${VERSION}-aarch64-apple-darwin.tar.gz" | tar xz
 sudo mv dart_mutant /usr/local/bin/
 
 # Linux (x86_64)
-VERSION=v0.1.0
+VERSION=v0.4.0
 curl -L "https://github.com/Nimblesite/dart_mutant/releases/download/${VERSION}/dart_mutant-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz
 sudo mv dart_mutant /usr/local/bin/
 ```
@@ -79,7 +79,7 @@ export PATH="$PATH:$(pwd)/target/release"
 
 ```bash
 dart_mutant --version
-# dart_mutant 0.1.0
+# dart_mutant 0.4.0
 
 dart_mutant --help
 # Usage: dart_mutant [OPTIONS]

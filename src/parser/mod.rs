@@ -6,57 +6,134 @@
 use crate::mutation::{Mutation, MutationOperator};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
+use tracing::{debug, info, trace, warn};
 use tree_sitter::{Node, Parser, Tree};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
-/// Discover all Dart files in the given path, excluding specified patterns
+/// Non-hidden directory names pruned during discovery: generated build output
+/// and vendored dependencies that never contain project source worth mutating.
+const PRUNED_DIRS: &[&str] = &["build", "node_modules"];
+
+/// Returns `true` when a directory entry should be pruned (never descended into).
+///
+/// Hidden directories (`.dart_tool`, `.git`, `.fvm`, …) and [`PRUNED_DIRS`] are
+/// pruned. Pruning `.dart_tool` is critical: it holds symlinks into the pub
+/// cache, and descending through them makes discovery appear to hang forever on
+/// real Dart projects. The scan root itself (depth 0) is never pruned.
+fn is_pruned_dir(entry: &DirEntry) -> bool {
+    if !entry.file_type().is_dir() || entry.depth() == 0 {
+        return false;
+    }
+    let name = entry.file_name().to_string_lossy();
+    let prune = name.starts_with('.') || PRUNED_DIRS.contains(&name.as_ref());
+    if prune {
+        debug!(dir = %entry.path().display(), "pruning directory from discovery");
+    }
+    prune
+}
+
+/// Returns `true` when a file is generated Dart code that must not be mutated.
+fn is_generated_dart(file_path: &Path) -> bool {
+    let filename = file_path.file_name().unwrap_or_default().to_string_lossy();
+    filename.ends_with(".g.dart")
+        || filename.ends_with(".freezed.dart")
+        || filename.ends_with(".mocks.dart")
+}
+
+/// Returns `true` when `path_str` matches any of the glob exclusion `patterns`.
+fn matches_exclude(patterns: &[String], path_str: &str) -> bool {
+    patterns
+        .iter()
+        .any(|pattern| glob::Pattern::new(pattern).is_ok_and(|p| p.matches(path_str)))
+}
+
+/// Running tallies recorded while classifying discovered files, for logging.
+#[derive(Default)]
+struct DiscoveryStats {
+    excluded: usize,
+    generated: usize,
+}
+
+/// Classify one filesystem entry, pushing real Dart source onto `files`.
+fn classify_entry(
+    file_path: &Path,
+    exclude_patterns: &[String],
+    files: &mut Vec<PathBuf>,
+    stats: &mut DiscoveryStats,
+) {
+    if file_path.extension().map_or(true, |ext| ext != "dart") {
+        return;
+    }
+    let path_str = file_path.to_string_lossy();
+    if matches_exclude(exclude_patterns, &path_str) {
+        stats.excluded += 1;
+        debug!(file = %file_path.display(), "excluded by pattern");
+    } else if is_generated_dart(file_path) {
+        stats.generated += 1;
+        debug!(file = %file_path.display(), "skipped generated file");
+    } else {
+        debug!(file = %file_path.display(), "discovered Dart file");
+        files.push(file_path.to_path_buf());
+    }
+}
+
+/// Discover all Dart files in the given path, excluding specified patterns.
+///
+/// Symlinks are NOT followed and heavy directories are pruned (see
+/// [`is_pruned_dir`]) so discovery cannot wander into the pub cache. The full
+/// directory tree is otherwise walked to unlimited depth.
 pub fn discover_dart_files(path: &Path, exclude_patterns: &[String]) -> Result<Vec<PathBuf>> {
+    info!(root = %path.display(), excludes = exclude_patterns.len(), "discovering Dart files");
+
     let mut files = Vec::new();
+    let mut stats = DiscoveryStats::default();
+    let mut dirs_scanned = 0_usize;
 
-    for entry in WalkDir::new(path)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let file_path = entry.path();
-
-        // Only include .dart files
-        if file_path.extension().map_or(false, |ext| ext == "dart") {
-            let path_str = file_path.to_string_lossy();
-
-            // Check exclusion patterns
-            let excluded = exclude_patterns.iter().any(|pattern| {
-                glob::Pattern::new(pattern)
-                    .map(|p| p.matches(&path_str))
-                    .unwrap_or(false)
-            });
-
-            if !excluded {
-                // Skip generated files by convention
-                let filename = file_path.file_name().unwrap_or_default().to_string_lossy();
-                if !filename.ends_with(".g.dart")
-                    && !filename.ends_with(".freezed.dart")
-                    && !filename.ends_with(".mocks.dart")
-                {
-                    files.push(file_path.to_path_buf());
-                }
+    let walker = WalkDir::new(path).follow_links(false).into_iter();
+    for entry in walker.filter_entry(|e| !is_pruned_dir(e)) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                warn!(%error, "skipping unreadable path during discovery");
+                continue;
             }
+        };
+        if entry.file_type().is_dir() {
+            dirs_scanned += 1;
+            trace!(dir = %entry.path().display(), depth = entry.depth(), "scanning directory");
+            continue;
         }
+        classify_entry(entry.path(), exclude_patterns, &mut files, &mut stats);
     }
 
+    info!(
+        found = files.len(),
+        dirs_scanned,
+        excluded = stats.excluded,
+        generated = stats.generated,
+        "Dart file discovery complete"
+    );
+    if files.is_empty() {
+        warn!(root = %path.display(), "no Dart files found — check --path and --exclude patterns");
+    }
     Ok(files)
 }
 
 /// Parse a Dart file and find all possible mutation locations
 pub fn parse_and_find_mutations(file_path: &Path) -> Result<Vec<Mutation>> {
+    trace!(file = %file_path.display(), "parsing file for mutations");
     let source = std::fs::read_to_string(file_path)
         .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
 
     let tree = parse_dart(&source)?;
+    if tree.root_node().has_error() {
+        warn!(file = %file_path.display(), "tree-sitter reported syntax errors; mutation discovery may be incomplete");
+    }
     let mut mutations = Vec::new();
 
     find_mutations_in_tree(&tree, &source, file_path, &mut mutations);
 
+    debug!(file = %file_path.display(), count = mutations.len(), "found mutations in file");
     Ok(mutations)
 }
 
@@ -135,6 +212,11 @@ fn find_mutations_in_node(
             find_string_mutation(&node, source, file_path, mutations);
         }
 
+        // Statement-level calls to (likely void) functions/methods
+        "expression_statement" => {
+            find_method_call_removal_mutation(&node, source, file_path, mutations);
+        }
+
         _ => {}
     }
 
@@ -147,6 +229,60 @@ fn find_mutations_in_node(
 
 fn get_node_text<'a>(node: &Node<'_>, source: &'a str) -> &'a str {
     source.get(node.byte_range()).unwrap_or_default()
+}
+
+/// Remove a statement-level call to a (likely void-returning) function/method.
+///
+/// Implements [PARSER-VOID-CALL]. Calls whose return value is discarded (e.g.
+/// `order.validate();`, `save(order);`, `await flush();`) usually exist for
+/// their side effects; deleting the whole statement surfaces tests that only
+/// assert return values. The replacement is empty, which is always valid Dart.
+fn find_method_call_removal_mutation(
+    node: &Node<'_>,
+    source: &str,
+    file_path: &Path,
+    mutations: &mut Vec<Mutation>,
+) {
+    if !is_side_effect_call_statement(node) {
+        return;
+    }
+    mutations.push(Mutation::new(
+        file_path.to_path_buf(),
+        node.start_byte(),
+        node.end_byte(),
+        node.start_position().row + 1,
+        node.start_position().column + 1,
+        get_node_text(node, source).to_owned(),
+        String::new(),
+        MutationOperator::MethodCallRemoval,
+    ));
+}
+
+/// Returns `true` when `node` is an expression statement whose value is
+/// discarded and whose expression is a call (including an awaited call).
+///
+/// Assignments (`x = f();`), cascades (`o..a()..b();`) and bare field accesses
+/// (`o.field;`) are excluded: only the first kinds below combined with an
+/// invocation count. The statement must also live directly in a brace block —
+/// deleting the lone statement of a braceless body (`if (c) f();`) would yield
+/// invalid Dart. Implements [PARSER-VOID-CALL].
+fn is_side_effect_call_statement(node: &Node<'_>) -> bool {
+    node.parent().is_some_and(|parent| parent.kind() == "block")
+        && node.named_child(0).is_some_and(|inner| {
+            matches!(
+                inner.kind(),
+                "member_access" | "unary_expression" | "await_expression"
+            ) && contains_arguments(&inner)
+        })
+}
+
+/// Returns `true` when `node` has an `arguments` descendant — i.e. it contains
+/// an invocation rather than only field accesses.
+fn contains_arguments(node: &Node<'_>) -> bool {
+    (0..node.child_count()).any(|i| {
+        node.child(i)
+            .is_some_and(|child| child.kind() == "arguments" || contains_arguments(&child))
+    })
 }
 
 fn find_binary_mutations(
@@ -678,6 +814,97 @@ mod tests {
             &mutations,
             MutationOperator::StringNonEmptyToEmpty
         ));
+    }
+
+    /// Default excludes mirror the CLI so discovery tests reflect real runs.
+    fn default_excludes() -> Vec<String> {
+        vec![
+            "**/*.g.dart".to_string(),
+            "**/*_test.dart".to_string(),
+            "**/test/**".to_string(),
+        ]
+    }
+
+    fn file_names(files: &[PathBuf]) -> Vec<String> {
+        files
+            .iter()
+            .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn test_discover_recurses_into_deeply_nested_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        write_dart_file(&dir, "lib/a/b/c/d/e/deep.dart", "void main() {}");
+        write_dart_file(&dir, "lib/top.dart", "void main() {}");
+
+        let files = discover_dart_files(dir.path(), &[]).unwrap();
+
+        let names = file_names(&files);
+        assert!(names.contains(&"deep.dart".to_string()), "got {names:?}");
+        assert!(names.contains(&"top.dart".to_string()), "got {names:?}");
+    }
+
+    #[test]
+    fn test_discover_prunes_dart_tool_and_dependency_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        write_dart_file(&dir, "lib/real.dart", "void main() {}");
+        write_dart_file(&dir, ".dart_tool/pkg/cached.dart", "void main() {}");
+        write_dart_file(&dir, "build/generated.dart", "void main() {}");
+        write_dart_file(&dir, "node_modules/dep/lib.dart", "void main() {}");
+
+        let names = file_names(&discover_dart_files(dir.path(), &[]).unwrap());
+
+        assert_eq!(names, vec!["real.dart".to_string()], "got {names:?}");
+    }
+
+    #[test]
+    fn test_discover_skips_generated_files() {
+        let dir = tempfile::tempdir().unwrap();
+        write_dart_file(&dir, "lib/model.dart", "void main() {}");
+        write_dart_file(&dir, "lib/model.g.dart", "void main() {}");
+        write_dart_file(&dir, "lib/model.freezed.dart", "void main() {}");
+        write_dart_file(&dir, "lib/model.mocks.dart", "void main() {}");
+
+        let names = file_names(&discover_dart_files(dir.path(), &[]).unwrap());
+
+        assert_eq!(names, vec!["model.dart".to_string()], "got {names:?}");
+    }
+
+    #[test]
+    fn test_discover_respects_exclude_patterns() {
+        let dir = tempfile::tempdir().unwrap();
+        write_dart_file(&dir, "lib/calc.dart", "void main() {}");
+        write_dart_file(&dir, "test/calc_test.dart", "void main() {}");
+
+        let names = file_names(&discover_dart_files(dir.path(), &default_excludes()).unwrap());
+
+        assert_eq!(names, vec!["calc.dart".to_string()], "got {names:?}");
+    }
+
+    #[test]
+    fn test_discover_empty_tree_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("lib")).unwrap();
+
+        let files = discover_dart_files(dir.path(), &[]).unwrap();
+
+        assert!(files.is_empty(), "got {files:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_discover_does_not_follow_symlinks() {
+        let outside = tempfile::tempdir().unwrap();
+        write_dart_file(&outside, "pkg/external.dart", "void main() {}");
+
+        let dir = tempfile::tempdir().unwrap();
+        write_dart_file(&dir, "lib/real.dart", "void main() {}");
+        std::os::unix::fs::symlink(outside.path(), dir.path().join("lib").join("linked")).unwrap();
+
+        let names = file_names(&discover_dart_files(dir.path(), &[]).unwrap());
+
+        assert_eq!(names, vec!["real.dart".to_string()], "got {names:?}");
     }
 
     #[test]

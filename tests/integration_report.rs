@@ -560,7 +560,7 @@ mod ai_report_structure {
 
             // Sort by count descending
             let mut files: Vec<_> = by_file.iter().collect();
-            files.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
+            files.sort_by_key(|f| std::cmp::Reverse(f.1.len()));
 
             for (file, mutants) in files {
                 report.push_str(&format!("### {}\n\n", file));

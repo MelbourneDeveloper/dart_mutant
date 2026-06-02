@@ -44,16 +44,19 @@ fn dart_available() -> bool {
     Command::new("dart")
         .arg("--version")
         .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+        .is_ok_and(|o| o.status.success())
 }
 
-/// Copy fixtures to a temp directory to prevent mutation from corrupting originals.
-/// Returns the temp directory path (which will be automatically cleaned up on drop).
-fn copy_fixtures_to_temp() -> Option<tempfile::TempDir> {
+/// Copy a named fixture project to a temp directory to prevent mutation from
+/// corrupting originals. Returns the temp dir (auto-cleaned on drop) and the
+/// path to the copied project inside it.
+fn copy_fixture_to_temp(fixture_name: &str) -> Option<(tempfile::TempDir, PathBuf)> {
     let temp_dir = tempfile::tempdir().ok()?;
-    let source = fixtures_path();
-    let dest = temp_dir.path().join("simple_dart_project");
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join(fixture_name);
+    let dest = temp_dir.path().join(fixture_name);
 
     // Copy recursively using walkdir
     for entry in walkdir::WalkDir::new(&source)
@@ -73,7 +76,13 @@ fn copy_fixtures_to_temp() -> Option<tempfile::TempDir> {
         }
     }
 
-    Some(temp_dir)
+    Some((temp_dir, dest))
+}
+
+/// Copy the default `simple_dart_project` fixture to a temp directory.
+/// Returns the temp directory path (which will be automatically cleaned up on drop).
+fn copy_fixtures_to_temp() -> Option<tempfile::TempDir> {
+    copy_fixture_to_temp("simple_dart_project").map(|(temp_dir, _)| temp_dir)
 }
 
 mod cli_arguments {
@@ -595,6 +604,127 @@ mod full_pipeline_e2e {
 
         // Cleanup (temp_fixtures auto-cleans on drop)
         std::fs::remove_dir_all(&temp_output).ok();
+    }
+}
+
+mod baseline_verification {
+    use super::*;
+
+    /// Regression test for GitHub issue #5: running mutation testing on a
+    /// project whose test suite FAILS on unmutated code (a "red baseline")
+    /// must NOT report every mutant as killed (a false 100% score). The tool
+    /// must refuse to run and surface the baseline failure.
+    ///
+    /// Implements [RUNNER-BASELINE].
+    #[test]
+    fn red_baseline_is_rejected_not_reported_as_all_killed() {
+        if !binary_exists() || !dart_available() {
+            println!("Skipping: binary not built or Dart not available");
+            return;
+        }
+
+        let Some((_temp, project_path)) = copy_fixture_to_temp("red_baseline_project") else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+
+        let pub_get = Command::new("dart")
+            .args(["pub", "get"])
+            .current_dir(&project_path)
+            .output();
+        if pub_get.is_err() || !pub_get.is_ok_and(|o| o.status.success()) {
+            println!("Skipping: dart pub get failed");
+            return;
+        }
+
+        let output = Command::new(binary_path())
+            .args([
+                "--path",
+                project_path.to_str().unwrap(),
+                "--threshold",
+                "0",
+                "--timeout",
+                "60",
+            ])
+            .output()
+            .expect("Failed to execute command");
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = format!("{stdout}{stderr}");
+        println!("combined output:\n{combined}");
+
+        // BUG: with a red baseline the tool currently marks every mutant as
+        // killed (exit code 0, 100% score). It must instead refuse to run.
+        assert!(
+            !output.status.success(),
+            "dart_mutant must exit non-zero on a red baseline, but it succeeded.\n{combined}"
+        );
+
+        // It must NOT print a mutation-results summary (which would imply a
+        // bogus score on an unverifiable baseline).
+        assert!(
+            !combined.contains("MUTATION TESTING RESULTS"),
+            "dart_mutant printed a mutation results summary on a red baseline.\n{combined}"
+        );
+
+        // It must explain that the baseline failed.
+        assert!(
+            combined.to_lowercase().contains("baseline"),
+            "Expected a baseline failure message, got:\n{combined}"
+        );
+    }
+}
+
+mod void_call_removal {
+    use super::*;
+
+    /// Regression test for GitHub issue #4: dart_mutant should generate a
+    /// "remove the call" mutation for each statement-level call to a
+    /// void-returning function/method (including awaited `Future<void>` calls),
+    /// since such calls exist for their side effects. `--dry-run` lists the
+    /// generated mutations as `original → mutated`, so each removed statement
+    /// appears verbatim. Implements [PARSER-VOID-CALL].
+    #[test]
+    fn generates_removal_mutations_for_void_call_statements() {
+        if !binary_exists() {
+            println!("Skipping: binary not built");
+            return;
+        }
+
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("void_calls_project");
+
+        let output = Command::new(binary_path())
+            .args(["--path", fixture.to_str().unwrap(), "--dry-run"])
+            .output()
+            .expect("Failed to execute command");
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        println!("stdout:\n{stdout}");
+
+        // Each discarded-result call statement must be offered for removal,
+        // including the awaited Future<void> call.
+        for call in [
+            "other.validate();",
+            "other.persist();",
+            "notify();",
+            "await other.drain();",
+        ] {
+            assert!(
+                stdout.contains(call),
+                "Expected a removal mutation for `{call}`, got:\n{stdout}"
+            );
+        }
+
+        // The braceless `if (flag) other.skip();` body must NOT be removed —
+        // doing so would produce invalid Dart. [PARSER-VOID-CALL]
+        assert!(
+            !stdout.contains("other.skip()"),
+            "Braceless-body call was offered for removal (would be invalid Dart):\n{stdout}"
+        );
     }
 }
 

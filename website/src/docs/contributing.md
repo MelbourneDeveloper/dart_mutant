@@ -194,18 +194,22 @@ fn test_my_new_mutation() {
 
 ## Release Process
 
-Releases are automated via GitHub Actions:
+Releases are fully automated via GitHub Actions. Pushing a `vMAJOR.MINOR.PATCH`
+tag is the only manual step — the workflow sets `Cargo.toml`'s version from the
+tag (the tag is the source of truth; it is not committed back to `main`):
 
-1. Update version in `Cargo.toml`
-2. Update `CHANGELOG.md`
-3. Create git tag: `git tag v0.2.0`
-4. Push tag: `git push origin v0.2.0`
+1. Update `CHANGELOG.md`
+2. Create git tag: `git tag v0.4.0`
+3. Push tag: `git push origin v0.4.0`
 
-Binaries are built for:
+The release workflow then automatically:
 
-- Linux (x86_64, aarch64)
-- macOS (x86_64, aarch64)
-- Windows (x86_64)
+- Builds binaries for macOS (Apple Silicon), Linux (x86_64), and Windows (x86_64)
+- Publishes the GitHub release with those archives attached
+- Updates the [Homebrew formula](https://github.com/Nimblesite/homebrew-tap)
+  (macOS + Linux) and the [Scoop manifest](https://github.com/Nimblesite/scoop-bucket)
+  (Windows) with the new version and checksums
+- Redeploys the website
 
 ## Code of Conduct
 

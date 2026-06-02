@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 use tokio::process::Command;
 use tokio::sync::{Mutex, Semaphore};
 use tokio::time::timeout;
+use tracing::{debug, info, trace, warn};
 
 /// RAII guard that restores a file to its original content on drop
 struct FileRestoreGuard {
@@ -56,6 +57,47 @@ async fn get_file_lock(file_locks: &FileLocks, file_path: &Path) -> Arc<Mutex<()
         .clone()
 }
 
+/// Outcome of the pre-flight baseline test run on unmutated code.
+#[derive(Debug)]
+pub enum BaselineStatus {
+    /// The unmutated test suite passes — safe to run mutation testing.
+    Passing,
+    /// The unmutated test suite fails; `details` holds captured output.
+    Failing {
+        /// Captured stdout/stderr (or a timeout note) explaining the failure.
+        details: String,
+    },
+}
+
+/// Run the test suite once against unmutated code to confirm a green baseline.
+///
+/// Implements [RUNNER-BASELINE]. Mutation scores are meaningless when the suite
+/// already fails on unmutated code (every mutant would appear "killed"), so
+/// callers MUST abort when this returns [`BaselineStatus::Failing`].
+pub async fn verify_baseline(project_path: &Path, timeout_secs: u64) -> Result<BaselineStatus> {
+    info!(project = %project_path.display(), timeout_secs, "verifying baseline test suite");
+    let timeout_duration = Duration::from_secs(timeout_secs);
+    match timeout(timeout_duration, run_dart_test(project_path)).await {
+        Ok(Ok((0, _, _))) => {
+            info!("baseline passed — proceeding with mutation testing");
+            Ok(BaselineStatus::Passing)
+        }
+        Ok(Ok((exit_code, stdout, stderr))) => {
+            warn!(exit_code, "baseline test suite failed on unmutated code");
+            Ok(BaselineStatus::Failing {
+                details: format!("{stdout}{stderr}"),
+            })
+        }
+        Ok(Err(error)) => Err(error),
+        Err(_) => {
+            warn!(timeout_secs, "baseline test run timed out");
+            Ok(BaselineStatus::Failing {
+                details: format!("baseline test run timed out after {timeout_secs}s"),
+            })
+        }
+    }
+}
+
 /// Run mutation tests in parallel
 ///
 /// Mutations are run in parallel, but mutations targeting the same file
@@ -68,6 +110,13 @@ pub async fn run_mutation_tests(
     timeout_secs: u64,
     progress: ProgressBar,
 ) -> Result<Vec<MutantTestResult>> {
+    info!(
+        mutations = mutations.len(),
+        parallel_jobs,
+        timeout_secs,
+        project = %project_path.display(),
+        "running mutation tests"
+    );
     let semaphore = Arc::new(Semaphore::new(parallel_jobs));
     let project_path = Arc::new(project_path.to_path_buf());
     let timeout_duration = Duration::from_secs(timeout_secs);
@@ -133,6 +182,12 @@ pub async fn run_mutation_tests(
         results.push(handle.await?);
     }
 
+    info!(
+        killed = killed.load(Ordering::SeqCst),
+        survived = survived.load(Ordering::SeqCst),
+        total = results.len(),
+        "mutation test run complete"
+    );
     Ok(results)
 }
 
@@ -146,9 +201,18 @@ async fn test_single_mutation(
 
     // Read the original file
     let file_path = &mutation.location.file;
+    debug!(
+        file = %file_path.display(),
+        line = mutation.location.start_line,
+        operator = ?mutation.operator,
+        original = %mutation.original,
+        mutated = %mutation.mutated,
+        "testing mutation"
+    );
     let original_source = match std::fs::read_to_string(file_path) {
         Ok(s) => s,
         Err(e) => {
+            warn!(file = %file_path.display(), error = %e, "failed to read file for mutation");
             return MutantTestResult {
                 mutation: mutation.clone(),
                 status: MutantStatus::Error,
@@ -170,6 +234,7 @@ async fn test_single_mutation(
 
     // Write the mutated file
     if let Err(e) = std::fs::write(file_path, &mutated_source) {
+        warn!(file = %file_path.display(), error = %e, "failed to write mutated file");
         return MutantTestResult {
             mutation: mutation.clone(),
             status: MutantStatus::Error,
@@ -206,10 +271,22 @@ async fn test_single_mutation(
         }
     };
 
+    let duration = start.elapsed();
+    debug!(
+        file = %file_path.display(),
+        line = mutation.location.start_line,
+        ?status,
+        elapsed_ms = duration.as_millis(),
+        "mutation result"
+    );
+    if let Some(error) = error.as_deref().filter(|_| status == MutantStatus::Error) {
+        warn!(file = %file_path.display(), error, "mutation test errored");
+    }
+
     MutantTestResult {
         mutation: mutation.clone(),
         status,
-        duration: start.elapsed(),
+        duration,
         output,
         error,
     }
@@ -217,6 +294,7 @@ async fn test_single_mutation(
 
 /// Run `dart test` and return (exit_code, stdout, stderr)
 async fn run_dart_test(project_path: &Path) -> Result<(i32, String, String)> {
+    trace!(project = %project_path.display(), "spawning `dart test`");
     let output = Command::new("dart")
         .arg("test")
         .arg("--reporter=compact")

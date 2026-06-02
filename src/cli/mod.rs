@@ -175,9 +175,7 @@ pub struct Args {
 }
 
 fn num_cpus() -> usize {
-    std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(4)
+    std::thread::available_parallelism().map_or(4, |n| n.get())
 }
 
 impl Args {

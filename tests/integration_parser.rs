@@ -84,11 +84,9 @@ mod discover_files {
         ];
 
         for (path, should_exclude) in test_paths {
-            let is_excluded = exclusion_patterns.iter().any(|pattern| {
-                glob::Pattern::new(pattern)
-                    .map(|p| p.matches(path))
-                    .unwrap_or(false)
-            });
+            let is_excluded = exclusion_patterns
+                .iter()
+                .any(|pattern| glob::Pattern::new(pattern).is_ok_and(|p| p.matches(path)));
 
             assert_eq!(
                 is_excluded, should_exclude,
