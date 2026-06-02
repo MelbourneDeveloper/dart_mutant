@@ -199,8 +199,8 @@ tag is the only manual step — the workflow sets `Cargo.toml`'s version from th
 tag (the tag is the source of truth; it is not committed back to `main`):
 
 1. Update `CHANGELOG.md`
-2. Create git tag: `git tag v0.4.0`
-3. Push tag: `git push origin v0.4.0`
+2. Create git tag: `git tag v0.5.0`
+3. Push tag: `git push origin v0.5.0`
 
 The release workflow then automatically:
 
